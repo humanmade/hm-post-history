@@ -1,5 +1,5 @@
 {
-  "name": "humanmade/post-history",
+  "name": "humanmade/hm-post-history",
   "description": "Adds a widget and REST endpoint for the purpose of displaying post revisions inline on the frontend.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0+",
