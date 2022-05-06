@@ -1,2 +1,6 @@
+# dependencies
 node_modules
 vendor
+
+# production
+assets/build
