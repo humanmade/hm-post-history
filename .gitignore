@@ -1,6 +1,8 @@
 # dependencies
 node_modules
-vendor
+/vendor
 
 # production
-assets/build
+/assets/build
+# make sure the folder remains, though
+!/assets/build/.gitkeep
