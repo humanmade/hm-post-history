@@ -7,3 +7,12 @@ It should be plug and play: Just add the widget to a sidebar that will appear on
 ## Assets
 
 This plugin requires a small amount of JS and CSS in order to work properly, and these must be built on deployment. To build them, run `.build-script`. Unless you run this script on deployment, *the plugin will not work*.
+
+## Release process
+
+1. Merge all PRs to be included in the release into `main`
+2. Open a PR to bump the version numbers in `package.json` and `hm-post-history.php` to the next appropriate version
+3. Once the PR is merged, create a tag on `main` with the version number, e.g. `v1.4.0`
+4. GitHub Actions should auto-build the frontend assets and reset that tag to push to the bundled code
+
+Check the build output in the Actions tab to see whether it works or not.
