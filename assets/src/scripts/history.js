@@ -158,7 +158,7 @@ function setupDiffList() {
 	 *
 	 * @param {CustomEvent} addRevisionEvent Event dispatched when a diff is added to the list of options.
 	 */
-	const addRevision = addRevisionEvent => {
+	const addRevision = ( addRevisionEvent ) => {
 		const {
 			author,
 			date,
@@ -178,7 +178,7 @@ function setupDiffList() {
 	 *
 	 * @param {CustomEvent} removeRevisionEvent Event dispatched when diff option is removed from list.
 	 */
-	const removeRevision = removeRevisionEvent => {
+	const removeRevision = ( removeRevisionEvent ) => {
 		const item = list.querySelector( `[data-post-history-diff-id="${removeRevisionEvent.detail.key}"]` );
 		if ( item ) {
 			list.removeChild( item );
@@ -189,9 +189,9 @@ function setupDiffList() {
 	 *
 	 * @param {CustomEvent} diffSwitchedEvent Event dispatched when diff switches.
 	 */
-	const updateActiveRevision = diffSwitchedEvent => {
+	const updateActiveRevision = ( diffSwitchedEvent ) => {
 		const id = diffSwitchedEvent.detail.currentDiffID;
-		list.querySelectorAll( 'li' ).forEach( item => {
+		list.querySelectorAll( 'li' ).forEach( ( item ) => {
 			item.classList.remove( 'hm-post-history__diff--current' );
 			if ( parseInt( item.dataset.postHistoryDiffId, 10 ) === id ) {
 				item.classList.add( 'hm-post-history__diff--current' );
@@ -276,7 +276,7 @@ function loadRevisions( page ) {
 	// Turn on loading state for button.
 	loadMoreButton.classList.add( 'hm-post-history__load-more--loading' );
 
-	fetch( req ).then( response => {
+	fetch( req ).then( ( response ) => {
 		// One way or another, loading is finished.
 		loadMoreButton.classList.remove( 'hm-post-history__load-more--loading' );
 
@@ -284,8 +284,8 @@ function loadRevisions( page ) {
 			return response.json();
 		}
 		loadMoreButton.classList.add( 'hm-post-history__load-more--failed' );
-	} ).then( json => {
-		json.revisions.map( revision => {
+	} ).then( ( json ) => {
+		json.revisions.map( ( revision ) => {
 			if ( ! revisions.has( revision.id ) ) {
 				revisions.set( revision.id, revision );
 			}
