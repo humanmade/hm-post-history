@@ -2,22 +2,8 @@
 
 set -e
 
-if [ -d "$HOME/.nvm" ]; then
-	export NVM_DIR="$HOME/.nvm"
-	[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-	NODE_VERSION=`nvm current`
-
-	# use system version of node (v12)
-	nvm use system
-fi
-
-npm ci
-npm run build
-
-# clean-up
-rm -rf node_modules
-
-if command -v nvm; then
-	nvm use $NODE_VERSION
-fi
+echo "==============================================================="
+echo "This build script is no longer required to use hm-post-history!"
+echo "Starting with v1.4.2, tags for this plugin include built files."
+echo "Install a tagged release from Packagist or GitHub, and enjoy :)"
+echo "==============================================================="
