@@ -1,4 +1,6 @@
 .hm-post-history {
+	--post-history-red: var( --post-history-red, #ff424a );
+
 	@keyframes spin {
 
 		from {
@@ -12,7 +14,7 @@
 	}
 
 	&__diff-container {
-		--diff-deleted: rgba(210, 70, 50, 0.5);
+		--diff-deleted: rgba(255, 66, 74, 0.5);
 		--diff-added: rgba(144, 238, 144, 0.5);
 
 		del {
@@ -72,10 +74,10 @@
 		letter-spacing: 0;
 		font-size: 1.222222222rem;
 		line-height: 1.555rem;
-		border: 1px solid #d24632;
+		border: 1px solid var( --post-history-red );
 		border-radius: 4px;
 		padding: calc( 0.4166666667rem + 1px ) 15px;
-		color: #d24632;
+		color: var( --post-history-red );
 		background: #fff;
 		margin-bottom: 0.8333333335rem;
 		margin-right: 7.5px;
@@ -93,7 +95,7 @@
 		&:focus {
 			--loader-spinner: url(../images/icon-spinner-white.svg) no-repeat center center;
 			color: white;
-			background: #d24632;
+			background: var( --post-history-red );
 		}
 
 		&[hidden] {
