@@ -1,0 +1,128 @@
+.hm-post-history {
+	--post-history-red: var( --post-history-red, #ff424a );
+
+	@keyframes spin {
+
+		from {
+			transform: rotate( 0deg );
+		}
+
+		to {
+			transform: rotate( -360deg );
+		}
+
+	}
+
+	&__diff-container {
+		--diff-deleted: rgba(255, 66, 74, 0.5);
+		--diff-added: rgba(144, 238, 144, 0.5);
+
+		del {
+			background: var(--diff-deleted);
+			text-decoration: none;
+		}
+
+		ins {
+			background-color: var(--diff-added);
+			text-decoration: none;
+		}
+	}
+
+	&__diff {
+		margin-bottom: 0.5rem;
+
+		&:last-child {
+			margin-bottom: 0;
+		}
+
+		&::marker {
+			content: "";
+			line-height: 0.8;
+		}
+
+		&--current {
+			color: green;
+
+			&::marker {
+				content: "→";
+			}
+		}
+
+	}
+
+	&__list {
+		padding-left: 1rem;
+	}
+
+	&__select-diff {
+		font-family: inherit;
+		color: inherit;
+		border: 0;
+		background: none;
+		display: inline-block;
+		cursor: pointer;
+
+		&:hover {
+			text-decoration: underline;
+		}
+	}
+
+	&__load-more {
+		--loader-spinner: url(../images/icon-spinner-red.svg) no-repeat center center;
+		font-weight: 300;
+		text-transform: none;
+		letter-spacing: 0;
+		font-size: 1.222222222rem;
+		line-height: 1.555rem;
+		border: 1px solid var( --post-history-red );
+		border-radius: 4px;
+		padding: calc( 0.4166666667rem + 1px ) 15px;
+		color: var( --post-history-red );
+		background: #fff;
+		margin-bottom: 0.8333333335rem;
+		margin-right: 7.5px;
+		display: inline-block;
+		text-align: center;
+		cursor: pointer;
+		vertical-align: middle;
+		width: auto;
+		box-shadow: none;
+		text-shadow: none;
+		height: auto;
+		transition: background .2s ease-in-out,border-color .2s ease-in-out;
+
+		&:hover,
+		&:focus {
+			--loader-spinner: url(../images/icon-spinner-white.svg) no-repeat center center;
+			color: white;
+			background: var( --post-history-red );
+		}
+
+		&[hidden] {
+			display: none;
+		}
+
+		&[disabled] {
+			pointer-events: none;
+		}
+
+		&--loading:after {
+			content: "";
+			background-size: auto;
+			animation-name: spin;
+			animation-duration: 1500ms;
+			animation-iteration-count: infinite;
+			animation-timing-function: linear;
+			display: inline-block;
+			vertical-align: middle;
+			margin-left: 15px;
+			position: relative;
+			top: -1px;
+			background: var(--loader-spinner);
+			background-size: 75%;
+			width: 1.555rem;
+			height: 1.555rem;
+		}
+	}
+
+}
