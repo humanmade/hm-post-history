@@ -29,6 +29,7 @@ jobs:
           CREATE_MAJOR_VERSION_TAG: false
           CREATE_MINOR_VERSION_TAG: false
           CREATE_PATCH_VERSION_TAG: false
+          DELETE_NODE_MODULES: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ORIGINAL_TAG_PREFIX: original/
           OUTPUT_BUILD_INFO_FILENAME: build.json
