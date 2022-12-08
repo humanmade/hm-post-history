@@ -1,6 +1,6 @@
 {
   "name": "hm-post-history",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Add front-end page history display with diffs.",
   "dependencies": {
     "htmldiff-js": "^1.0.5"
