@@ -98,7 +98,7 @@ function setup_post_types() : void {
  */
 function enqueue_assets() : void {
 	Asset_Loader\enqueue_asset(
-		HM_POST_HISTORY_DIR . 'assets/build/asset-manifest.json',
+		HM_POST_HISTORY_DIR . 'assets/build/production-asset-manifest.json',
 		'frontend.js',
 		[
 			'handle' => FEATURE,
@@ -106,7 +106,7 @@ function enqueue_assets() : void {
 	);
 
 	Asset_Loader\enqueue_asset(
-		HM_POST_HISTORY_DIR . 'assets/build/asset-manifest.json',
+		HM_POST_HISTORY_DIR . 'assets/build/production-asset-manifest.json',
 		'frontend.css',
 		[
 			'handle' => FEATURE,
