@@ -4,7 +4,7 @@
  * Description: Display post history inline, with diffs.
  * Author: Human Made Limited
  * Author URI: https://humanmade.com/
- * Version: 1.4.2
+ * Version: 1.4.3
  * Text Domain: hm-post-history
  */
 
