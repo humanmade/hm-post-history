@@ -1,5 +1,5 @@
 .post-history {
-	--post-history-red: #ff424a;
+	--post-history-accent: var( --post-history-red, #ff424a );
 
 	@keyframes spin {
 
@@ -77,10 +77,10 @@
 		letter-spacing: 0;
 		font-size: 1.222222222rem;
 		line-height: 1.555rem;
-		border: 1px solid var( --post-history-red );
+		border: 1px solid var( --post-history-accent );
 		border-radius: 4px;
 		padding: calc( 0.4166666667rem + 1px ) 15px;
-		color: var( --post-history-red );
+		color: var( --post-history-accent );
 		background: #fff;
 		margin-bottom: 0.8333333335rem;
 		margin-right: 7.5px;
@@ -98,7 +98,7 @@
 		&:focus {
 			--loader-spinner: url(../images/icon-spinner-white.svg) no-repeat center center;
 			color: white;
-			background: var( --post-history-red );
+			background: var( --post-history-accent );
 		}
 
 		&[hidden] {
