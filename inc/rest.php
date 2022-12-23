@@ -99,7 +99,7 @@ function build_revisions_list( WP_Query $query ) : array {
 		$revisions[] = [
 			'id' => $revision->ID,
 			'content' => apply_filters( 'the_content', $revision->post_content ),
-			'date' => $date->format( 'j M y @ H:i' ),
+			'date' => $date->format( 'Y-m-d @ H:i' ),
 			'author' => get_the_author_meta( 'display_name', $revision->post_author ),
 		];
 
