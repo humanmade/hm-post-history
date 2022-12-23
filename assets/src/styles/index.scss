@@ -1,5 +1,5 @@
-.hm-post-history {
-	--post-history-red: var( --post-history-red, #ff424a );
+.post-history {
+	--post-history-red: #ff424a;
 
 	@keyframes spin {
 
@@ -12,7 +12,9 @@
 		}
 
 	}
+}
 
+.hm-post-history {
 	&__diff-container {
 		--diff-deleted: rgba(255, 66, 74, 0.5);
 		--diff-added: rgba(144, 238, 144, 0.5);
@@ -32,7 +34,7 @@
 		margin-bottom: 0.5rem;
 
 		&:last-child {
-			margin-bottom: 0;
+			margin-bottom: 1rem;
 		}
 
 		&::marker {
@@ -61,6 +63,7 @@
 		background: none;
 		display: inline-block;
 		cursor: pointer;
+		text-align: left;
 
 		&:hover {
 			text-decoration: underline;
