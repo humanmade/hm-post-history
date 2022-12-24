@@ -14,3 +14,11 @@ This plugin requires a small amount of JS and CSS in order to work properly, and
 4. GitHub Actions should auto-build the frontend assets and reset that tag to push to the bundled code
 
 Check the build output in the Actions tab to see whether it works or not.
+
+### Development Builds
+
+To test the plugin on a deployed instance via composer, register the repository as a VCS source, and set your `humanmade/hm-post-history` dependency to track the `dev-develop-built` branch source.
+
+Merge PRs which require development testing into the `develop` branch, and they will be automatically built and pushed to that `develop-built` branch using a GitHub Action.
+
+If code which is not intended for release ends up on `develop`, force-reset both `develop` and `develop-built` to match the latest `main`.
