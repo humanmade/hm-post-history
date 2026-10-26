@@ -77,6 +77,17 @@ function fingerprint( \WP_Post $post ) : string {
 }
 
 /**
+ * Let the host exclude snapshots that cannot represent a published version.
+ *
+ * @param \WP_Post $revision Native revision being considered.
+ */
+function is_release_candidate( \WP_Post $revision ) : bool {
+	// A host may reject a snapshot, but cannot bypass fingerprint or access checks.
+	return ! wp_is_post_autosave( $revision )
+		&& (bool) apply_filters( 'hm_post_history_is_release_candidate', true, $revision );
+}
+
+/**
  * Bind publication evidence to the exact matching native revision.
  *
  * @param int $id Saved parent post ID.
@@ -92,7 +103,7 @@ function capture_release( int $id, \WP_Post $post ) : void {
 		'check_enabled' => false,
 	] );
 	$revision = reset( $revisions );
-	if ( ! $revision || get_post_meta( $revision->ID, '_playbook_review_evidence', true ) || wp_is_post_autosave( $revision ) || fingerprint( $revision ) !== fingerprint( $post ) ) {
+	if ( ! $revision || ! is_release_candidate( $revision ) || fingerprint( $revision ) !== fingerprint( $post ) ) {
 		return;
 	}
 	// add_post_meta redirects revisions to their parent; use the metadata API to bind evidence to this exact native revision.
@@ -108,8 +119,7 @@ function capture_release( int $id, \WP_Post $post ) : void {
  * @param \WP_Post $revision Native revision to check.
  */
 function is_released( \WP_Post $revision ) : bool {
-	// Owner-review snapshots are evidence of a review, never evidence of release.
-	if ( get_post_meta( $revision->ID, '_playbook_review_evidence', true ) ) {
+	if ( ! is_release_candidate( $revision ) ) {
 		return false;
 	}
 	$evidence = get_post_meta( $revision->ID, RELEASE_META, true );

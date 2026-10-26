@@ -69,9 +69,10 @@ function setup() : void {
  * @return \WP_Query
  */
 function get_revisions_query( array $args ) : WP_Query {
+	$default_per_page = apply_filters( 'hm_post_history_default_per_page', DEFAULT_PER_PAGE );
 	return \HM\Post_History\Versions\query( (int) ( $args['id'] ?? get_the_ID() ), [
 		// phpcs:ignore WordPress.WP.PostsPerPage.posts_per_page_posts_per_page -- Legacy callers remain capped at 50, with a three-item default.
-		'posts_per_page' => min( 50, max( 1, (int) ( $args['per_page'] ?? DEFAULT_PER_PAGE ) ) ),
+		'posts_per_page' => min( 50, max( 1, (int) ( $args['per_page'] ?? $default_per_page ) ) ),
 		'paged' => max( 1, (int) ( $args['paged'] ?? 1 ) ),
 		'no_found_rows' => false,
 	] );
