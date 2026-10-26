@@ -1,11 +1,14 @@
 <?php
+/** Legacy history widget retained for non-opted-in themes. */
 
 namespace HM\Post_History;
 
 use function HM\Post_History\REST\get_revisions_query;
 
+/** Render revision controls using the legacy theme integration. */
 class Post_History_Widget extends \WP_Widget {
 
+	/** Initialize the widget identity. */
 	public function __construct() {
 		parent::__construct( 'hm-post-history-widget', 'Post History' );
 	}
@@ -13,12 +16,16 @@ class Post_History_Widget extends \WP_Widget {
 	/**
 	 * Entry point for rendering widget.
 	 *
-	 * @param $args
-	 * @param $instance
+	 * @param array $args Registered sidebar arguments.
+	 * @param array $instance Saved widget settings.
 	 *
 	 * @return void
 	 */
 	public function widget( $args, $instance ) {
+		if ( Browser\available() ) {
+			return;
+		}
+
 		if ( ! $this->has_revisions( $args, $instance ) ) {
 			// If there are no revisions, there's no point to this widget.
 			return;
@@ -44,8 +51,8 @@ class Post_History_Widget extends \WP_Widget {
 	/**
 	 * Determine if this post has any revisions.
 	 *
-	 * @param array $args
-	 * @param array $instance
+	 * @param array $args Registered sidebar arguments.
+	 * @param array $instance Saved widget settings.
 	 *
 	 * @return bool
 	 */
@@ -62,8 +69,8 @@ class Post_History_Widget extends \WP_Widget {
 	/**
 	 * Render the list that will hold revisions.
 	 *
-	 * @param array $args
-	 * @param array $instance
+	 * @param array $args Registered sidebar arguments.
+	 * @param array $instance Saved widget settings.
 	 *
 	 * @return void
 	 */
@@ -78,8 +85,8 @@ class Post_History_Widget extends \WP_Widget {
 	/**
 	 * Render the Load button for loading revisions.
 	 *
-	 * @param array $args
-	 * @param array $instance
+	 * @param array $args Registered sidebar arguments.
+	 * @param array $instance Saved widget settings.
 	 *
 	 * @return void
 	 */

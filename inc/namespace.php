@@ -28,6 +28,7 @@ function bootstrap() : void {
 	add_action( 'init', __NAMESPACE__ . '\\conditional_bootstrap' );
 }
 
+/** Register request hooks after checking feature availability. */
 function conditional_bootstrap() : void {
 	if ( ! should_enable() ) {
 		return;
@@ -45,6 +46,7 @@ function conditional_bootstrap() : void {
 	REST\bootstrap();
 }
 
+/** Register the legacy widget for themes that have not opted into the browser. */
 function setup_widget() {
 	register_widget( Post_History_Widget::class );
 }
@@ -97,6 +99,10 @@ function setup_post_types() : void {
  * @return void
  */
 function enqueue_assets() : void {
+	if ( Browser\available() ) {
+		return;
+	}
+
 	Asset_Loader\enqueue_asset(
 		HM_POST_HISTORY_DIR . 'assets/build/production-asset-manifest.json',
 		'frontend.js',
@@ -123,6 +129,10 @@ function enqueue_assets() : void {
  * @return void
  */
 function insert_server_side_settings() : void {
+	if ( Browser\available() ) {
+		return;
+	}
+
 	wp_localize_script(
 		FEATURE,
 		'HMPostHistorySettings',
@@ -144,6 +154,10 @@ function insert_server_side_settings() : void {
  * @return void
  */
 function insert_per_item_data() : void {
+	if ( Browser\available() ) {
+		return;
+	}
+
 	wp_localize_script(
 		FEATURE,
 		'HMPostHistoryCurrentItem',
@@ -176,6 +190,10 @@ function add_content_marker( string $content ) : string {
 	if ( $should_add_marker ) {
 		// Prepend our marker to the content.
 		$content = sprintf( '<a hidden %s="%d"></a>', MARKER_DATA_ATTR, get_the_ID() ) . $content;
+		// Keep the opt-in browser outside the legacy diff's replaceable article content.
+		if ( Browser\enabled() ) {
+			$content = '<div class="hm-history-current">' . $content . '</div>';
+		}
 	}
 
 	return $content;

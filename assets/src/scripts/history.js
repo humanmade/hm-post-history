@@ -167,7 +167,12 @@ function setupDiffList() {
 		const item = document.createElement( 'li' );
 		item.classList.add( 'hm-post-history__diff' );
 		item.dataset.postHistoryDiffId = id;
-		item.innerHTML = `<button class="hm-post-history__select-diff" type="button" value="${id}">${date} - ${author}</button>`;
+		const button = document.createElement( 'button' );
+		button.className = 'hm-post-history__select-diff';
+		button.type = 'button';
+		button.value = id;
+		button.textContent = `${date} - ${author}`;
+		item.appendChild( button );
 		item.addEventListener( 'click', () => {
 			switchToDiff( id );
 		} );

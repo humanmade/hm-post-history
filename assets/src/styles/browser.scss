@@ -1,0 +1,444 @@
+/* Shared controls can sit in the article or the host theme's page sidebar. */
+.hm-history,
+.hm-history-reading,
+.hm-history-reading-title {
+	--history-ink: var( --c-ink-strong, #131313 );
+	--history-muted: var( --c-ink-muted, #555 );
+	--history-page: var( --c-surface-page, #fff );
+	--history-panel: var( --c-surface-subtle, #f4f5f6 );
+	--history-line: var( --c-border-default, #c5c8cc );
+	--history-action: var( --c-action-primary, #1f63c8 );
+	--history-added: #d7efdf;
+	--history-removed: #f9dce0;
+}
+
+.hm-history {
+	color: var( --history-ink );
+	background: var( --history-page );
+	border-block: 1px solid var( --history-line );
+	margin-block: 1rem 0;
+	font: inherit;
+	font-size: 0.875rem;
+	line-height: 1.5;
+
+	summary {
+		padding: 0.7rem 0;
+		cursor: pointer;
+		color: var( --history-action );
+		font-weight: 600;
+	}
+
+	[hidden] {
+		/* Required to override host-theme display rules on hidden controls. */
+		/* stylelint-disable-next-line declaration-no-important */
+		display: none !important;
+	}
+
+	p {
+		margin-block: 0.5rem;
+	}
+
+	&__body {
+		padding-bottom: 0.5rem;
+	}
+
+	button {
+		box-sizing: border-box;
+		font: inherit;
+		font-weight: 500;
+		line-height: 1.4;
+		min-height: 44px;
+		height: auto;
+		padding: 0.5rem 0.75rem;
+		border: 1px solid var( --history-line );
+		border-radius: 8px;
+		background: var( --history-page );
+		color: var( --history-action );
+		cursor: pointer;
+		max-width: 100%;
+		text-transform: none;
+		letter-spacing: normal;
+	}
+
+	&__version {
+		display: flex;
+		flex-direction: column;
+		max-height: 340px;
+	}
+
+	&__timeline {
+		flex: 0 1 auto;
+		min-height: 0;
+		list-style: none;
+		margin: 0 0 0.5rem;
+		padding: 0 2px 2px;
+		max-height: 340px;
+		overflow-y: auto;
+		scroll-padding-top: 2px;
+		overscroll-behavior: contain;
+		scrollbar-width: thin;
+		scrollbar-color: var( --history-line ) transparent;
+
+		li {
+			position: relative;
+			margin: 0;
+			padding: 0 0 4px;
+		}
+
+		&--fixed > li::after {
+			display: none;
+		}
+
+		li:not(:last-child):not(.hm-history__sentinel)::after {
+			content: "";
+			position: absolute;
+			inset: 24px auto -20px 8px;
+			width: 1px;
+			background: var( --history-line );
+			pointer-events: none;
+		}
+		// Only the comparison base stays separate from scrolling revisions.
+		&--fixed {
+			flex: 0 0 auto;
+			overflow: visible;
+			max-height: none;
+			margin-bottom: 4px;
+			padding-bottom: 6px;
+			border-bottom: 1px solid var( --history-line );
+		}
+
+		li.hm-history__current {
+			background: var( --history-page );
+		}
+
+		li.hm-history__pinned > .hm-history__revision:not([aria-current="true"]) {
+			background: var( --history-panel );
+		}
+
+		li.hm-history__pinned > .hm-history__revision:not([aria-busy="true"])::before,
+		li:has(> .hm-history__pin:hover) > .hm-history__revision:not([aria-busy="true"])::before,
+		li:has(> .hm-history__pin:focus-visible) > .hm-history__revision:not([aria-busy="true"])::before {
+			opacity: 0;
+		}
+
+		.hm-history__pin:hover,
+		.hm-history__pin:focus-visible,
+		li.hm-history__pinned > .hm-history__pin {
+			opacity: 1;
+			pointer-events: auto;
+		}
+
+		li:has(> .hm-history__revision[aria-busy="true"]) > .hm-history__pin {
+			opacity: 0;
+			pointer-events: none;
+		}
+	}
+
+	button.hm-history__revision {
+		position: relative;
+		display: grid;
+		align-content: center;
+		gap: 2px;
+		width: 100%;
+		padding: 10px 34px 10px 24px;
+		border: 0;
+		border-radius: 6px;
+		background: transparent;
+		color: var( --history-ink );
+		text-align: left;
+		white-space: normal;
+		overflow-wrap: anywhere;
+
+		&::before {
+			content: "";
+			position: absolute;
+			top: 17px;
+			left: 4px;
+			width: 9px;
+			height: 9px;
+			border: 1px solid var( --history-line );
+			border-radius: 50%;
+			background: var( --history-page );
+			z-index: 1;
+		}
+
+		&:hover {
+			background: var( --history-panel );
+		}
+
+		&[aria-current="true"] {
+			background: var( --c-action-soft, #eef4ff );
+			color: var( --history-action );
+			box-shadow: inset 0 0 0 1px var( --history-action );
+		}
+
+		&[aria-current="true"]::before {
+			background: var( --history-action );
+			border-color: var( --history-action );
+		}
+
+		&[aria-busy="true"]::before {
+			width: 12px;
+			height: 12px;
+			top: 15px;
+			left: 2px;
+			border: 2px solid var( --history-action );
+			border-right-color: transparent;
+			background: transparent;
+			animation: hm-history-spin 700ms linear infinite;
+		}
+
+		&:focus-visible {
+			outline-offset: -2px;
+		}
+	}
+
+	&__date {
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+	}
+
+	&__states {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 2px 8px;
+		font-size: 0.75rem;
+		font-weight: 600;
+	}
+
+	&__state--base {
+		color: var( --history-muted );
+	}
+
+	button.hm-history__pin {
+		position: absolute;
+		top: 0;
+		left: -3px;
+		z-index: 1;
+		display: grid;
+		place-items: center;
+		width: 24px;
+		min-height: 44px;
+		padding: 4px;
+		border: 0;
+		border-radius: 4px;
+		background: transparent;
+		color: var( --history-muted );
+		opacity: 0;
+		pointer-events: auto;
+
+		svg {
+			width: 15px;
+			height: 15px;
+		}
+
+		&[aria-pressed="true"] {
+			color: var( --history-action );
+		}
+
+		&:focus-visible {
+			opacity: 1;
+			pointer-events: auto;
+			outline-offset: -2px;
+		}
+	}
+
+	@media ( hover: none ), ( max-width: 600px ) {
+		button.hm-history__pin {
+			left: 0;
+			width: 44px;
+		}
+
+		button.hm-history__revision {
+			padding-inline-start: 52px;
+
+			&::before {
+				left: 18px;
+			}
+
+			&[aria-busy="true"]::before {
+				left: 16px;
+			}
+		}
+
+		.hm-history__timeline li:not(:last-child):not(.hm-history__sentinel)::after {
+			left: 22px;
+		}
+	}
+
+	@media ( hover: none ) {
+		button.hm-history__pin {
+			opacity: 1;
+		}
+
+		button.hm-history__revision:not([aria-busy="true"])::before {
+			opacity: 0;
+		}
+	}
+
+	&__timestamp {
+		color: var( --history-muted );
+		font-size: 0.75rem;
+		font-weight: 400;
+	}
+
+	&__author {
+		position: absolute;
+		inset-inline-end: 8px;
+		top: 50%;
+		transform: translateY( -50% );
+		display: flex;
+		align-items: center;
+		color: var( --history-muted );
+		font-size: 0.8rem;
+		font-weight: 400;
+	}
+
+	&__avatar {
+		position: relative;
+		display: grid;
+		place-items: center;
+		flex: 0 0 18px;
+		width: 18px;
+		height: 18px;
+		overflow: hidden;
+		border-radius: 50%;
+		background: var( --c-action-soft, #eef4ff );
+		color: var( --history-action );
+		font-size: 0.5rem;
+		font-weight: 600;
+	}
+
+	&__avatar img {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	&__sentinel {
+		height: 1px;
+	}
+
+	button:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+
+	:focus-visible {
+		outline: 3px solid var( --history-action );
+		outline-offset: 3px;
+	}
+
+	&__notice {
+		padding: 0.6rem 0.8rem;
+		background: var( --history-panel );
+		border-radius: 8px;
+	}
+
+	&__sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		overflow: hidden;
+		clip-path: inset( 50% );
+		white-space: nowrap;
+	}
+
+	::selection {
+		color: var( --history-page );
+		background: var( --history-action );
+	}
+}
+
+@keyframes hm-history-spin {
+	to {
+		transform: rotate( 360deg );
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.hm-history button.hm-history__revision[aria-busy="true"]::before {
+		animation: none;
+	}
+}
+
+.hm-history--sidebar {
+	--history-line: var( --c-line, #c5c8cc );
+	--history-page: var( --c-surface, #fff );
+	--history-action: var( --c-action, #1f63c8 );
+	margin: 0 0 18px;
+	border: 1px solid var( --history-line );
+	border-radius: var( --r-card, 16px );
+	overflow: hidden;
+
+	> summary {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 15px 16px;
+		color: var( --history-ink );
+		font: 600 14px/1.4 var( --font-body, inherit );
+		list-style: none;
+
+		&::-webkit-details-marker {
+			display: none;
+		}
+
+		&::marker {
+			content: "";
+		}
+
+		&:hover {
+			background: var( --c-action-soft, #eef4ff );
+		}
+
+		&:focus-visible {
+			outline: 2px solid var( --c-focus, var( --history-action ) );
+			outline-offset: -3px;
+		}
+	}
+
+	.hm-history__body {
+		border-top: 1px solid var( --history-line );
+		padding: 16px;
+	}
+
+	.hm-history__chevron {
+		flex: 0 0 auto;
+		width: 0.8em;
+		height: 0.8em;
+		color: var( --history-action );
+		transform: scaleY( 1.1 );
+	}
+
+	&[open] .hm-history__chevron {
+		transform: scaleY( -1.1 );
+	}
+}
+
+.hm-history-reading,
+.hm-history-reading-title {
+	overflow-wrap: anywhere;
+
+	ins {
+		background: var( --history-added );
+		color: var( --history-ink );
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.15em;
+	}
+
+	del {
+		background: var( --history-removed );
+		color: var( --history-ink );
+		text-decoration: line-through;
+	}
+
+	del + ins {
+		margin-inline-start: 0.25em;
+	}
+}
