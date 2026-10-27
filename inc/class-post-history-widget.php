@@ -5,8 +5,10 @@ namespace HM\Post_History;
 
 use function HM\Post_History\REST\get_revisions_query;
 
+use WP_Widget;
+
 /** Render revision controls using the legacy theme integration. */
-class Post_History_Widget extends \WP_Widget {
+class Post_History_Widget extends WP_Widget {
 
 	/** Initialize the widget identity. */
 	public function __construct() {

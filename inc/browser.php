@@ -3,7 +3,12 @@
 
 namespace HM\Post_History\Browser;
 
-use HM\Post_History\Versions;
+use Asset_Loader;
+use HM\Post_History\REST;
+use WP_Error;
+use WP_Post;
+use WP_REST_Request;
+use WP_REST_Response;
 
 /**
  * Register the shared browser hooks.
@@ -23,7 +28,7 @@ function enabled() : bool {
 
 /** Whether this request will render the replacement history interface. */
 function available() : bool {
-	return enabled() && is_singular() && Versions\can_read( get_queried_object_id() );
+	return enabled() && is_singular() && REST\can_read( get_queried_object_id() );
 }
 
 /**
@@ -34,7 +39,7 @@ function assets() : void {
 		return;
 	}
 	// Older consumers still ship Asset Loader before the manifest API was named explicitly.
-	$enqueue = function_exists( '\\Asset_Loader\\enqueue_manifest_asset' ) ? '\\Asset_Loader\\enqueue_manifest_asset' : '\\Asset_Loader\\enqueue_asset';
+	$enqueue = function_exists( Asset_Loader::class . '\\enqueue_manifest_asset' ) ? Asset_Loader::class . '\\enqueue_manifest_asset' : Asset_Loader::class . '\\enqueue_asset';
 	$enqueue( HM_POST_HISTORY_DIR . 'assets/build/production-asset-manifest.json', 'browser.js', [
 		'handle' => 'hm-history-browser',
 		'dependencies' => [ 'wp-i18n' ],
@@ -130,7 +135,7 @@ function routes() : void {
 	];
 	$common = [
 		'methods' => 'GET',
-		'permission_callback' => '\\HM\\Post_History\\REST\\revisions_request_permissions_callback',
+		'permission_callback' => REST::class . '\\revisions_request_permissions_callback',
 		'args' => $args,
 	];
 	register_rest_route( 'post-history/v1', '/versions/(?P<id>\d+)', array_merge( $common, [ 'callback' => __NAMESPACE__ . '\\listing' ] ) );
@@ -142,7 +147,7 @@ function routes() : void {
  *
  * @param array $data Authorized response data.
  */
-function response( array $data ) : \WP_REST_Response {
+function response( array $data ) : WP_REST_Response {
 	$response = rest_ensure_response( $data );
 	$response->header( 'Cache-Control', 'private, no-store, max-age=0' );
 	$response->header( 'Vary', 'Cookie' );
@@ -152,11 +157,10 @@ function response( array $data ) : \WP_REST_Response {
 /**
  * Describe a version without loading its content into the timeline.
  *
- * @param \WP_Post $post Parent or native revision.
+ * @param WP_Post $post Parent or native revision.
  * @param bool $current Whether this is the live parent.
  */
-function metadata( \WP_Post $post, bool $current = false ) : array {
-	$released = $current ? $post->post_status === 'publish' : Versions\is_released( $post );
+function metadata( WP_Post $post, bool $current = false ) : array {
 	return [
 		'id' => $current ? 0 : $post->ID,
 		'date' => get_date_from_gmt( $post->post_modified_gmt, 'j M Y, H:i' ),
@@ -165,7 +169,6 @@ function metadata( \WP_Post $post, bool $current = false ) : array {
 			'size' => 64,
 			'default' => '404',
 		] ) ?: '' ),
-		'released' => $released,
 		'current' => $current,
 	];
 }
@@ -173,30 +176,26 @@ function metadata( \WP_Post $post, bool $current = false ) : array {
 /**
  * Return one bounded page of authorized version metadata.
  *
- * @param \WP_REST_Request $request Validated list request.
+ * @param WP_REST_Request $request Validated list request.
  */
-function listing( \WP_REST_Request $request ) : \WP_REST_Response {
+function listing( WP_REST_Request $request ) : WP_REST_Response {
 	$parent = get_post( $request['id'] );
-	$query = Versions\query( $parent->ID, [
+	$revisions = REST\get_revisions( $parent->ID, [
 		'before' => $request['before'],
 		'posts_per_page' => 21,
 	] );
-	$has_more = count( $query->posts ) > 20;
-	$posts = array_slice( $query->posts, 0, 20 );
+	$has_more = count( $revisions ) > 20;
+	$posts = array_slice( $revisions, 0, 20 );
 	$items = [];
-	$current_fingerprint = Versions\fingerprint( $parent );
 	foreach ( $posts as $post ) {
-		if ( Versions\can_read_version( $parent, $post ) ) {
-			$item = metadata( $post );
-			$item['matches_current'] = Versions\fingerprint( $post ) === $current_fingerprint;
-			$items[] = $item;
-		}
+		$item = metadata( $post );
+		$item['matches_current'] = matches_current( $post, $parent );
+		$items[] = $item;
 	}
 	return response( [
 		'current' => metadata( $parent, true ),
 		'versions' => $items,
 		'next' => $has_more ? end( $posts )->ID : null,
-		'can_view_unpublished' => Versions\can_read_unreleased( $parent->ID ),
 	] );
 }
 
@@ -308,74 +307,24 @@ function omit_shortcodes( string $content ) : string {
 }
 
 /**
- * Describe saved link/image attributes that do not necessarily change visible text.
+ * Avoid duplicating the current article in the timeline; no stored fingerprint is needed.
  *
- * @param string $html Sanitized saved markup.
+ * @param WP_Post $revision Saved revision.
+ * @param WP_Post $parent Current post.
  */
-function attribute_values( string $html ) : array {
-	$tags = new \WP_HTML_Tag_Processor( $html );
-	$values = [];
-	$index = 0;
-	$labels = [
-		'href' => __( 'Link destination', 'hm-post-history' ),
-		'src' => __( 'Image source', 'hm-post-history' ),
-		'alt' => __( 'Image description', 'hm-post-history' ),
-	];
-	while ( $tags->next_tag() ) {
-		if ( ! in_array( $tags->get_tag(), [ 'A', 'IMG' ], true ) ) {
-			continue;
-		}
-		++$index;
-		foreach ( $labels as $attribute => $label ) {
-			$value = $tags->get_attribute( $attribute );
-			if ( is_string( $value ) ) {
-				$values[ $index . ':' . $attribute ] = [
-					'label' => $label,
-					'value' => $value,
-				];
-			}
-		}
-	}
-	return $values;
-}
-
-/**
- * Build text for the optional native comparison.
- *
- * @param \WP_Post $post Parent or native revision.
- * @param string|null $html Previously sanitized markup, if available.
- */
-function text_version( \WP_Post $post, ?string $html = null ) : string {
-	$html = $html ?? saved_html( $post->post_content );
-	// Attribute changes matter too: a link can change destination without changing its text.
-	$tags = new \WP_HTML_Tag_Processor( $html );
-	$attributes = [];
-	while ( $tags->next_tag() ) {
-		foreach ( [ 'href', 'src', 'alt' ] as $attribute ) {
-			$value = $tags->get_attribute( $attribute );
-			if ( is_string( $value ) && $value !== '' ) {
-				$attributes[] = $tags->get_tag() . ' ' . $attribute . ': ' . $value;
-			}
-		}
-	}
-
-	$html = preg_replace( '~</(?:p|h[1-6]|li|tr|div|blockquote)>|<br\s*/?>~i', "$0\n", $html );
-	$html = preg_replace( '~</t[dh]>~i', "$0\t", $html );
-	$text = $post->post_title . "\n\n" . $post->post_excerpt . "\n\n" . html_entity_decode( wp_strip_all_tags( $html ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
-	$text .= "\n" . implode( "\n", $attributes );
-	foreach ( Versions\meta_fields( $post->post_type === 'revision' ? get_post( $post->post_parent ) : $post ) as $key => $label ) {
-		$text .= "\n" . $label . ': ' . wp_json_encode( get_post_meta( $post->ID, $key, false ) );
-	}
-	return $text;
+function matches_current( WP_Post $revision, WP_Post $parent ) : bool {
+	return $revision->post_title === $parent->post_title
+		&& $revision->post_content === $parent->post_content
+		&& $revision->post_excerpt === $parent->post_excerpt;
 }
 
 /**
  * Order a pair consistently, including saves made within the same second.
  *
- * @param \WP_Post $selected Selected snapshot.
- * @param \WP_Post $base Comparison base.
+ * @param WP_Post $selected Selected snapshot.
+ * @param WP_Post $base Comparison base.
  */
-function chronological_versions( \WP_Post $selected, \WP_Post $base ) : array {
+function chronological_versions( WP_Post $selected, WP_Post $base ) : array {
 	$order = strcmp( $selected->post_modified_gmt, $base->post_modified_gmt );
 	if ( $order === 0 ) {
 		// The live parent follows its latest snapshot, despite having a lower ID.
@@ -388,58 +337,43 @@ function chronological_versions( \WP_Post $selected, \WP_Post $base ) : array {
 /**
  * Return an authorized snapshot and chronological comparison.
  *
- * @param \WP_REST_Request $request Validated version and comparison request.
+ * @param WP_REST_Request $request Validated version and comparison request.
  */
-function detail( \WP_REST_Request $request ) {
+function detail( WP_REST_Request $request ) {
 	$parent = get_post( $request['id'] );
 	$version = (int) $request['version'];
 	$post = $version ? get_post( $version ) : $parent;
-	if ( ! $post || ( $version && ! Versions\can_read_version( $parent, $post ) ) ) {
-		return new \WP_Error( 'history_unavailable', __( 'This version is unavailable.', 'hm-post-history' ), [ 'status' => 404 ] );
+	if ( ! $post || ( $version && ! REST\can_read_revision( $parent, $post ) ) ) {
+		return new WP_Error( 'history_unavailable', __( 'This version is unavailable.', 'hm-post-history' ), [ 'status' => 404 ] );
 	}
 	$other = null;
 	$explicit_base = $request->has_param( 'base' );
 	if ( $explicit_base ) {
 		$base = (int) $request['base'];
 		$other = $base ? get_post( $base ) : $parent;
-		if ( ! $other || ( $base && ! Versions\can_read_version( $parent, $other ) ) ) {
-			return new \WP_Error( 'history_unavailable', __( 'This comparison version is unavailable.', 'hm-post-history' ), [ 'status' => 404 ] );
+		if ( ! $other || ( $base && ! REST\can_read_revision( $parent, $other ) ) ) {
+			return new WP_Error( 'history_unavailable', __( 'This comparison version is unavailable.', 'hm-post-history' ), [ 'status' => 404 ] );
 		}
 	} elseif ( $request['compare'] === 'current' && $version ) {
 		$other = $parent;
 	} else {
-		$query = Versions\query( $parent->ID, [
+		$revisions = REST\get_revisions( $parent->ID, [
 			'before' => $version,
 			'posts_per_page' => $version ? 1 : 2,
 		] );
-		foreach ( $query->posts as $candidate ) {
-			// Core's latest revision often equals the current page; compare with its predecessor.
-			if ( Versions\can_read_version( $parent, $candidate ) && ( $version || Versions\fingerprint( $candidate ) !== Versions\fingerprint( $parent ) ) ) {
+		foreach ( $revisions as $candidate ) {
+			// Core's latest revision often matches the current page; skip that duplicate.
+			if ( $version || ! matches_current( $candidate, $parent ) ) {
 				$other = $candidate;
 				break;
 			}
 		}
 	}
-	$previous = Versions\query( $parent->ID, [
-		'before' => $version,
-		'posts_per_page' => 1,
-	] )->posts[0] ?? null;
-	$newer = $version ? ( Versions\query( $parent->ID, [
-		'after' => $version,
-		'posts_per_page' => 1,
-		'order' => 'ASC',
-	] )->posts[0] ?? null ) : null;
-	$neighbors = [
-		'older' => $previous && Versions\can_read_version( $parent, $previous ) ? $previous->ID : null,
-		'newer' => $version ? ( $newer && Versions\can_read_version( $parent, $newer ) ? $newer->ID : 0 ) : null,
-	];
-	$diff = null;
 	$inline = null;
-	// Reuse the same sanitized snapshots for previews, inline and native text diffs.
+	// Render each saved version once; the existing HTML diff library compares them in the browser.
 	$html = saved_html( $post->post_content );
 	if ( $other ) {
 		$other_html = $other->ID === $post->ID ? $html : saved_html( $other->post_content );
-		require_once ABSPATH . 'wp-admin/includes/revision.php';
 		[ $older, $newer ] = chronological_versions( $post, $other );
 		$before_html = $older === $post ? $html : $other_html;
 		$after_html = $older === $post ? $other_html : $html;
@@ -455,69 +389,17 @@ function detail( \WP_REST_Request $request ) {
 				'html' => $after_html,
 			],
 		];
-		$inline['changes'] = [];
-		foreach ( Versions\meta_fields( $parent ) as $key => $label ) {
-			$before = get_post_meta( $older->ID, $key, false );
-			$after = get_post_meta( $newer->ID, $key, false );
-			if ( $before !== $after ) {
-				$format = static function ( $values ) {
-					return implode( ', ', array_map( static function ( $value ) {
-						return is_scalar( $value ) ? (string) $value : wp_json_encode( $value );
-					}, $values ) );
-				};
-				$inline['changes'][] = [
-					'label' => $label,
-					'before' => $format( $before ),
-					'after' => $format( $after ),
-				];
-			}
-		}
-		$before_attributes = attribute_values( $inline['before']['html'] );
-		$after_attributes = attribute_values( $inline['after']['html'] );
-		foreach ( array_unique( array_merge( array_keys( $before_attributes ), array_keys( $after_attributes ) ) ) as $key ) {
-			$before = $before_attributes[ $key ]['value'] ?? '';
-			$after = $after_attributes[ $key ]['value'] ?? '';
-			if ( $before !== $after ) {
-				$inline['changes'][] = [
-					'label' => $after_attributes[ $key ]['label'] ?? $before_attributes[ $key ]['label'],
-					'before' => $before,
-					'after' => $after,
-				];
-			}
-		}
-		$before_text = text_version( $older, $before_html );
-		$after_text = text_version( $newer, $after_html );
-		// Bound the native line/word diff for unusually large documents. Previews remain available.
-		$diff = strlen( $before_text ) + strlen( $after_text ) > 200000 || substr_count( $before_text . $after_text, "\n" ) > 2000
-			? '<p>' . esc_html__( 'This document is too large for inline comparison. Use the version previews.', 'hm-post-history' ) . '</p>'
-			: wp_text_diff( $before_text, $after_text, [
-				'show_split_view' => true,
-				'title_left' => __( 'Earlier version', 'hm-post-history' ),
-				'title_right' => __( 'Later version', 'hm-post-history' ),
-			] );
-		if ( strlen( $inline['before']['html'] ) + strlen( $inline['after']['html'] ) > 200000 || substr_count( $before_text . $after_text, "\n" ) > 2000 ) {
+		// Limit client-side HTML diff work on unusually large documents; retain the saved preview.
+		if ( strlen( $before_html ) + strlen( $after_html ) > 200000 || substr_count( $before_html . $after_html, "\n" ) > 2000 ) {
 			$inline = null;
 		}
-		$diff = $diff ?: '<p>' . esc_html__( 'No changes to saved text or tracked metadata.', 'hm-post-history' ) . '</p>';
-	}
-	$meta = [];
-	foreach ( Versions\meta_fields( $parent ) as $key => $label ) {
-		$meta[] = [
-			'label' => $label,
-			'value' => implode( ', ', array_map( static function ( $value ) {
-				return is_scalar( $value ) ? (string) $value : wp_json_encode( $value );
-			}, get_post_meta( $post->ID, $key, false ) ) ),
-		];
 	}
 	return response( [
 		'version' => metadata( $post, ! $version ),
 		'title' => $post->post_title,
 		'excerpt' => $post->post_excerpt,
 		'html' => $html,
-		'meta' => $meta,
-		'neighbors' => $neighbors,
 		'inline' => $inline,
 		'comparison' => $other ? metadata( $other, $other->ID === $parent->ID ) : null,
-		'diff' => $diff,
 	] );
 }

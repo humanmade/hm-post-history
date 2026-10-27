@@ -8,19 +8,19 @@
  * Text Domain: hm-post-history
  */
 
+use HM\Post_History;
+
 // Define directory constant for use in included files.
 define( 'HM_POST_HISTORY_DIR', trailingslashit( plugin_dir_path( __FILE__ ) ) );
 // Define URL constant for use in includes files.
 define( 'HM_POST_HISTORY_URL', trailingslashit( plugin_dir_url( __FILE__ ) ) );
 
 require_once __DIR__ . '/inc/class-post-history-widget.php';
-require_once __DIR__ . '/inc/versions.php';
 require_once __DIR__ . '/inc/browser.php';
 require_once __DIR__ . '/inc/rest.php';
 require_once __DIR__ . '/inc/namespace.php';
 
 // Start it up.
-\HM\Post_History\bootstrap();
+Post_History\bootstrap();
 
-\HM\Post_History\Versions\bootstrap();
-\HM\Post_History\Browser\bootstrap();
+Post_History\Browser\bootstrap();
