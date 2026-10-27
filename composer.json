@@ -1,6 +1,6 @@
 {
   "name": "humanmade/hm-post-history",
-  "description": "Adds a widget and REST endpoint for the purpose of displaying post revisions inline on the frontend.",
+  "description": "Browse native WordPress revisions in a timeline with inline article comparisons.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0+",
   "homepage": "https://github.com/humanmade/hm-post-history",
