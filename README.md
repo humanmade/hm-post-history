@@ -23,17 +23,29 @@ If code which is not intended for release ends up on `develop`, force-reset both
 
 ## Shared history browser
 
-Themes opt in with `add_theme_support( 'hm-post-history-browser' )`. On a readable singular page the plugin inserts a native disclosure above the article. The timeline replaces the old widget and its custom REST endpoint. Hosts can narrow the opt-in surface with `hm_post_history_should_show_browser` without changing API permissions.
+Themes opt in with `add_theme_support( 'hm-post-history-browser' )`. On a readable singular page the plugin inserts its history section above the article. The timeline replaces the old widget and its custom REST endpoint. Hosts can narrow the opt-in surface with `hm_post_history_should_show_browser` without changing API permissions.
 
-The compact history control keeps the comparison base above a scrollable timeline. The current page is the default base; pinning an older revision replaces it in that fixed position and moves the current page to the top of the scrolling list. Rows show a date and author avatar, with the name available to assistive technology and on hover. Choosing a version highlights its changes against the current page by default. Pin a timeline entry to compare other selections against it; unpin to return to current-page comparisons. The pin is included in deep links as `base`. It loads 20 metadata entries at a time as the reader scrolls, using Core REST pagination, then fetches only the selected content and comparison. Deep links can select versions outside the initially loaded list. URLs use `#history={native-revision-id}`. Older fragments containing `view` or `compare` remain accepted; comparison defaults to the current page unless `base` pins another version. Additions and removals always read chronologically from older to newer, regardless of which version is pinned. Identical current snapshots are omitted from the timeline, and opening history starts with the current page unless a historical deep link was supplied. Closing history restores the current article and removes the history fragment. In-flight responses cannot reopen or replace a closed history view. Historical previews and rendered HTML comparisons are shown in the article itself. Its original DOM nodes are retained and restored when history closes or the reader returns to the current page, preserving interactive state. Title changes are highlighted in the page heading. Selecting a revision displays a loading indicator and scrolls to its first visible change once ready, allowing for fixed page headers and reduced-motion preferences. The reading view shows the article’s inline changes without a raw attribute-change summary. Host themes can opt out of content insertion with `hm_post_history_browser_in_content` and render `Browser\markup( $id, $container )` in their page sidebar, as Playbook does.
+The always-visible history control loads five revision records at a time through
+Core REST pagination. **Load older versions** appends the next batch. The timeline
+uses normal document scrolling; there is no nested scrollbar or collapsed mode.
+The current page is the default comparison base. Pinning an older revision moves
+it above the remaining entries; unpinning restores the current page as the base.
 
-Hosts may pass an optional container renderer to `Browser\markup()`. It
-receives an escaped title, trusted control HTML and the history root's class/data
-attributes, and returns the complete markup. The root must remain a native
-`details` element with those attributes so the browser can observe its `open`
-state and native `toggle` events. Playbook uses this to share its existing sidebar
-disclosure component. Omitting the callback uses the plugin's plain native disclosure. Sidebar
-presentation belongs to the theme's shared widget component. This changes no history permissions or data.
+Selecting a revision highlights changes in the article. Comparisons run from older
+to newer, regardless of which version is pinned. Returning to current restores the
+original DOM nodes and their interactive state. Deep links use
+`#history={revision-id}&base={revision-id}` and can load entries outside the first
+batch. An ordinary page anchor is preserved until the reader selects a revision.
+Identical current snapshots are omitted. Large comparisons fall back to a saved
+preview; loading failures offer a retry.
+
+Hosts can opt out of in-content controls with `hm_post_history_browser_in_content`
+and render `Browser\markup( $id, $container )` in their sidebar, as Playbook does.
+The optional container callback receives an escaped title, trusted control HTML
+and the root class/data attributes. It should return an always-visible section
+with those attributes. Without a callback the plugin supplies that same layout.
+The host owns the surrounding presentation; the browser has one pagination and
+interaction path.
 
 ### Access and saved content
 
@@ -55,7 +67,7 @@ The browser inherits the consumer theme's reading font. Its scoped `--history-*`
 
 On a supported theme, sign in as an editor of the page and confirm existing revisions are listed without a new capability or publication marker. Sign in as a subscriber and confirm Core denies revision access. Check that direct requests for an inaccessible parent, another page’s revision, an autosave and an unavailable pinned base cannot be displayed.
 
-Select a revision, pin a different base, scroll to load older versions, and unpin again. Confirm dates remain in order, the fixed base appears only once, and selecting current without a historical base restores the original article. Reload a deep link, close the panel while a request is pending, and retry after a temporary network failure. Verify keyboard focus, narrow layouts and reduced motion, then remove theme support to confirm the browser and its assets are no longer inserted.
+Select a revision, pin a different base, use **Load older versions**, and unpin again. Confirm dates remain in order, the fixed base appears only once, and selecting current without a historical base restores the original article. Reload a deep link and retry after a temporary network failure. Verify keyboard focus, narrow layouts and reduced motion, then remove theme support to confirm the browser and its assets are no longer inserted.
 
 ### Compatibility and rollout
 

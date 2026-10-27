@@ -69,7 +69,8 @@ function markup( int $id, ?callable $container = null ) : string {
 	<div class="hm-history__workspace" hidden>
 		<section class="hm-history__version" aria-label="<?php esc_attr_e( 'History controls', 'hm-post-history' ); ?>" aria-busy="false">
 			<ol class="hm-history__timeline hm-history__timeline--fixed" data-history-fixed aria-label="<?php esc_attr_e( 'Comparison base', 'hm-post-history' ); ?>"></ol>
-			<ol class="hm-history__timeline" data-history-versions aria-label="<?php esc_attr_e( 'Page versions', 'hm-post-history' ); ?>"><li class="hm-history__sentinel" data-history-more aria-hidden="true" hidden></li></ol>
+			<ol class="hm-history__timeline" data-history-versions aria-label="<?php esc_attr_e( 'Page versions', 'hm-post-history' ); ?>"></ol>
+			<button type="button" data-history-older hidden><?php esc_html_e( 'Load older versions', 'hm-post-history' ); ?></button>
 			<p class="hm-history__notice" data-history-notice hidden></p>
 		</section>
 	</div>
@@ -87,14 +88,14 @@ function markup( int $id, ?callable $container = null ) : string {
 	}
 	ob_start();
 	?>
-	<details class="hm-history" data-hm-history data-endpoint="<?php echo esc_url( $attributes['data-endpoint'] ); ?>">
-		<summary>
+	<section class="hm-history" data-hm-history data-endpoint="<?php echo esc_url( $attributes['data-endpoint'] ); ?>">
+		<h2 class="hm-history__title">
 			<span><?php echo esc_html( $title ); ?></span>
-		</summary>
+		</h2>
 		<div class="hm-history__body">
 			<?php echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above. ?>
 		</div>
-	</details>
+	</section>
 	<?php
 	return ob_get_clean();
 }
