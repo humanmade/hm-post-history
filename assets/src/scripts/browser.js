@@ -7,6 +7,11 @@ const changeSelector = 'ins.diffins, ins.diffmod, del.diffdel, del.diffmod';
 
 // Preserve the live DOM while historical content is shown in the actual article.
 document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
+	// A host can use an always-visible section instead of a native disclosure.
+	const isDisclosure = root.tagName === 'DETAILS';
+	const pageSize = isDisclosure ? 20 : 5;
+	/** @returns {boolean} Whether the host currently exposes the controls. */
+	const isOpen = () => ! isDisclosure || root.open;
 	/**
 	 * @param {string} selector Attribute suffix.
 	 * @returns {HTMLElement} Matching browser control.
@@ -15,6 +20,7 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 	const status = find( 'status' );
 	const versionList = find( 'versions' );
 	const fixedList = find( 'fixed' );
+	const older = find( 'older' );
 	const article = root.closest( 'main' )?.querySelector( '.hm-history-current' );
 	if ( ! article ) {
 		return;
@@ -349,6 +355,10 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 		root.classList.toggle( 'hm-history--empty', empty );
 		root.querySelector( '.hm-history__workspace' ).hidden = ! initialized || empty;
 		find( 'more' ).hidden = ! next;
+		if ( older ) {
+			older.hidden = isDisclosure || ! next;
+			older.disabled = loadingList;
+		}
 		root.querySelectorAll( '[data-version]' ).forEach( ( button ) => {
 			const id = Number( button.dataset.version );
 			positionVersion( button.closest( 'li' ), id );
@@ -398,14 +408,14 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 			}
 			do {
 				const page = next || 1;
-				const { data, totalPages } = await request( `/revisions?context=view&per_page=20&page=${page}&orderby=id&order=desc&_fields=id,hm_history` );
+				const { data, totalPages } = await request( `/revisions?context=view&per_page=${pageSize}&page=${page}&orderby=id&order=desc&_fields=id,hm_history` );
 				data.forEach( ( revision ) => {
 					if ( revision.hm_history ) {
 						addVersion( versionMetadata( revision ) );
 					}
 				} );
 				next = page < totalPages ? page + 1 : null;
-			} while ( next && root.open && versionIds.size <= Math.max( 1, previousCount ) );
+			} while ( next && isOpen() && versionIds.size <= Math.max( 1, previousCount ) );
 			initialized = true;
 			find( 'retry' ).hidden = true;
 			const empty = versionIds.size === 1 && ! next;
@@ -454,7 +464,7 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 		try {
 			const [ versionResponse, baseResponse ] = await Promise.all( [ readVersion( id ), id === baseline ? null : readVersion( baseline ) ] );
 			const data = comparison( versionResponse, baseResponse || versionResponse );
-			if ( sequence !== requestNumber || ! root.open ) {
+			if ( sequence !== requestNumber || ! isOpen() ) {
 				return;
 			}
 			const version = data.version;
@@ -479,7 +489,7 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 				revealFirstChange( change );
 			}
 		} catch ( error ) {
-			if ( sequence !== requestNumber || ! root.open ) {
+			if ( sequence !== requestNumber || ! isOpen() ) {
 				return;
 			}
 			restoreArticle();
@@ -503,17 +513,17 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 			await select( selected, true, false );
 			return;
 		}
-		if ( await loadList() && root.open && sequence === requestNumber ) {
+		if ( await loadList() && isOpen() && sequence === requestNumber ) {
 			const params = new URLSearchParams( window.location.hash.slice( 1 ) );
 			const base = Number( params.get( 'base' ) );
 			baseline = Number.isSafeInteger( base ) && base > 0 && ! currentMatches.has( base ) ? base : 0;
 			const requested = Number( params.get( 'history' ) );
 			const id = Number.isSafeInteger( requested ) && requested > 0 && ! currentMatches.has( requested ) ? requested : 0;
-			await select( id, true, false );
+			await select( id, isDisclosure || window.location.hash.startsWith( '#history=' ), false );
 		}
 	}
 
-	root.addEventListener( 'toggle', () => {
+	if ( isDisclosure ) root.addEventListener( 'toggle', () => {
 		if ( root.open ) {
 			open();
 		} else {
@@ -529,16 +539,30 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 	find( 'retry' ).addEventListener( 'click', async () => {
 		await retry();
 	} );
-	const olderObserver = new IntersectionObserver( ( entries ) => {
-		if ( entries.some( ( entry ) => entry.isIntersecting ) && root.open && next && ! loadingList ) {
-			loadList();
-		}
-	}, {
-		root: versionList,
-		rootMargin: '0px 0px 100px 0px',
-	} );
-	olderObserver.observe( find( 'more' ) );
-	if ( window.location.hash.startsWith( '#history=' ) ) {
+	if ( isDisclosure ) {
+		const olderObserver = new IntersectionObserver( ( entries ) => {
+			if ( entries.some( ( entry ) => entry.isIntersecting ) && isOpen() && next && ! loadingList ) {
+				loadList();
+			}
+		}, {
+			root: versionList,
+			rootMargin: '0px 0px 100px 0px',
+		} );
+		olderObserver.observe( find( 'more' ) );
+	} else if ( older ) {
+		older.addEventListener( 'click', async () => {
+			const focused = document.activeElement === older;
+			await loadList();
+			if ( focused ) {
+				const versions = Array.from( versionList.querySelectorAll( '[data-version]' ) );
+				const target = older.hidden ? versions[versions.length - 1] : older;
+				target?.focus( { preventScroll: true } );
+			}
+		} );
+	}
+	if ( ! isDisclosure ) {
+		open();
+	} else if ( window.location.hash.startsWith( '#history=' ) ) {
 		root.open = true;
 	}
 } );

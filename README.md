@@ -29,11 +29,14 @@ The compact history control keeps the comparison base above a scrollable timelin
 
 Hosts may pass an optional container renderer to `Browser\markup()`. It
 receives an escaped title, trusted control HTML and the history root's class/data
-attributes, and returns the complete markup. The root must remain a native
-`details` element with those attributes so the browser can observe its `open`
-state and native `toggle` events. Playbook uses this to share its existing sidebar
-disclosure component. Omitting the callback uses the plugin's plain native disclosure. Sidebar
-presentation belongs to the theme's shared widget component. This changes no history permissions or data.
+attributes, and returns the complete markup. A native `details` root retains the
+existing open/toggle behavior and scrollable 20-entry batches. An always-visible
+root such as `section` loads five metadata entries per batch, using **Load older
+versions** and normal document scrolling. Preserve the supplied class and data
+attributes in either case. Static containers retain the initial page anchor until
+the reader selects a version. Playbook uses the static form for its shared sidebar
+sections. Omitting the callback uses the plugin's plain native disclosure.
+Presentation belongs to the host theme; permissions and saved data are unchanged.
 
 ### Access and saved content
 
@@ -55,7 +58,7 @@ The browser inherits the consumer theme's reading font. Its scoped `--history-*`
 
 On a supported theme, sign in as an editor of the page and confirm existing revisions are listed without a new capability or publication marker. Sign in as a subscriber and confirm Core denies revision access. Check that direct requests for an inaccessible parent, another page’s revision, an autosave and an unavailable pinned base cannot be displayed.
 
-Select a revision, pin a different base, scroll to load older versions, and unpin again. Confirm dates remain in order, the fixed base appears only once, and selecting current without a historical base restores the original article. Reload a deep link, close the panel while a request is pending, and retry after a temporary network failure. Verify keyboard focus, narrow layouts and reduced motion, then remove theme support to confirm the browser and its assets are no longer inserted.
+Select a revision, pin a different base, scroll to load older versions (or use **Load older versions** in a static container), and unpin again. Confirm dates remain in order, the fixed base appears only once, and selecting current without a historical base restores the original article. Reload a deep link and retry after a temporary network failure. For a native disclosure, also close the panel while a request is pending. Verify keyboard focus, narrow layouts and reduced motion, then remove theme support to confirm the browser and its assets are no longer inserted.
 
 ### Compatibility and rollout
 

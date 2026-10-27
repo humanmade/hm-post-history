@@ -70,6 +70,7 @@ function markup( int $id, ?callable $container = null ) : string {
 		<section class="hm-history__version" aria-label="<?php esc_attr_e( 'History controls', 'hm-post-history' ); ?>" aria-busy="false">
 			<ol class="hm-history__timeline hm-history__timeline--fixed" data-history-fixed aria-label="<?php esc_attr_e( 'Comparison base', 'hm-post-history' ); ?>"></ol>
 			<ol class="hm-history__timeline" data-history-versions aria-label="<?php esc_attr_e( 'Page versions', 'hm-post-history' ); ?>"><li class="hm-history__sentinel" data-history-more aria-hidden="true" hidden></li></ol>
+			<button type="button" data-history-older hidden><?php esc_html_e( 'Load older versions', 'hm-post-history' ); ?></button>
 			<p class="hm-history__notice" data-history-notice hidden></p>
 		</section>
 	</div>

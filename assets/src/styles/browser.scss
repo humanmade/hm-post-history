@@ -12,6 +12,28 @@
 	--history-removed: #f9dce0;
 }
 
+/* Static host sections use the document's scroll and explicit batch loading. */
+.hm-history:not(details) {
+	.hm-history__version {
+		display: block;
+		max-height: none;
+	}
+
+	.hm-history__timeline {
+		max-height: none;
+		overflow: visible;
+
+		li:has(+ .hm-history__sentinel)::after {
+			display: none;
+		}
+	}
+
+	[data-history-older] {
+		width: 100%;
+		margin-top: 0.5rem;
+	}
+}
+
 .hm-history {
 	color: var( --history-ink );
 	background: var( --history-page );
