@@ -113,29 +113,40 @@ function markup( int $id, bool $sidebar = false, ?callable $container = null ) :
  * Register the read-only version endpoints.
  */
 function routes() : void {
-	$args = [
-		'id' => [
-			'type' => 'integer',
-			'minimum' => 1,
-		],
-		'before' => [
-			'type' => 'integer',
-			'minimum' => 0,
-			'default' => 0,
-		],
-		'base' => [
-			'type' => 'integer',
-			'minimum' => 0,
-			'default' => 0,
-		],
+	$id = [
+		'type' => 'integer',
+		'minimum' => 1,
 	];
 	$common = [
 		'methods' => 'GET',
 		'permission_callback' => REST::class . '\\revisions_request_permissions_callback',
-		'args' => $args,
 	];
-	register_rest_route( 'post-history/v1', '/versions/(?P<id>\d+)', array_merge( $common, [ 'callback' => __NAMESPACE__ . '\\listing' ] ) );
-	register_rest_route( 'post-history/v1', '/versions/(?P<id>\d+)/(?P<version>\d+)', array_merge( $common, [ 'callback' => __NAMESPACE__ . '\\detail' ] ) );
+	register_rest_route( 'post-history/v1', '/versions/(?P<id>\d+)', array_merge( $common, [
+		'callback' => __NAMESPACE__ . '\\listing',
+		'args' => [
+			'id' => $id,
+			'before' => [
+				'type' => 'integer',
+				'minimum' => 0,
+				'default' => 0,
+			],
+		],
+	] ) );
+	register_rest_route( 'post-history/v1', '/versions/(?P<id>\d+)/(?P<version>\d+)', array_merge( $common, [
+		'callback' => __NAMESPACE__ . '\\detail',
+		'args' => [
+			'id' => $id,
+			'version' => [
+				'type' => 'integer',
+				'minimum' => 0,
+			],
+			'base' => [
+				'type' => 'integer',
+				'minimum' => 0,
+				'default' => 0,
+			],
+		],
+	] ) );
 }
 
 /**
@@ -157,9 +168,10 @@ function response( array $data ) : WP_REST_Response {
  * @param bool $current Whether this is the live parent.
  */
 function metadata( WP_Post $post, bool $current = false ) : array {
+	$modified = get_post_datetime( $post, 'modified', 'gmt' );
 	return [
 		'id' => $current ? 0 : $post->ID,
-		'date' => get_date_from_gmt( $post->post_modified_gmt, 'j M Y, H:i' ),
+		'date' => $modified ? wp_date( 'j M Y, H:i', $modified->getTimestamp() ) : '',
 		'author' => get_the_author_meta( 'display_name', $post->post_author ) ?: __( 'Unknown author', 'hm-post-history' ),
 		'avatar' => esc_url_raw( get_avatar_url( (int) $post->post_author, [
 			'size' => 64,
