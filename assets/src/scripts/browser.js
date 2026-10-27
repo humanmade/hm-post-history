@@ -2,6 +2,8 @@ import '../styles/browser.scss';
 import HtmlDiff from 'htmldiff-js';
 
 const { __, sprintf } = window.wp.i18n;
+const { apiFetch } = window.wp;
+const changeSelector = 'ins.diffins, ins.diffmod, del.diffdel, del.diffmod';
 
 // Preserve the live DOM while historical content is shown in the actual article.
 document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
@@ -14,7 +16,7 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 	const versionList = find( 'versions' );
 	const fixedList = find( 'fixed' );
 	const article = root.closest( 'main' )?.querySelector( '.hm-history-current' );
-	if ( ! article || ! article.classList.contains( 'hm-history-current' ) ) {
+	if ( ! article ) {
 		return;
 	}
 	const originalNodes = Array.from( article.childNodes );
@@ -24,11 +26,9 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 
 	/**
 	 * Restore the same DOM nodes, preserving live block state and event listeners.
-	 *
-	 * @param {boolean} force Also clear a legacy widget comparison when opening this browser.
 	 */
-	function restoreArticle( force = false ) {
-		if ( ! showingHistory && ! force ) {
+	function restoreArticle() {
+		if ( ! showingHistory ) {
 			return;
 		}
 		article.replaceChildren( ...originalNodes );
@@ -43,7 +43,7 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 
 	/** @returns {Element|null} First visible title or article change, excluding supplemental UI. */
 	function firstChange() {
-		const changes = [ ...( title?.querySelectorAll( 'ins, del' ) || [] ), ...article.querySelectorAll( '[data-history-content-change]' ) ];
+		const changes = [ ...( title?.querySelectorAll( changeSelector ) || [] ), ...article.querySelectorAll( '[data-history-content-change]' ) ];
 		return changes.find( ( change ) => {
 			const bounds = change.getBoundingClientRect();
 			return bounds.width > 0 && bounds.height > 0;
@@ -61,7 +61,6 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 				inset = Math.max( inset, area.bottom + 24 );
 			}
 		} );
-		change.classList.add( 'hm-history-first-change' );
 		window.scrollTo( {
 			top: Math.max( 0, window.scrollY + bounds.top - inset ),
 			behavior: window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ? 'instant' : 'smooth',
@@ -70,7 +69,6 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 
 	/** @param {number|null} id Revision being loaded, or null when loading finishes. */
 	function setLoading( id ) {
-		root.classList.toggle( 'hm-history--loading', id !== null );
 		article.setAttribute( 'aria-busy', String( id !== null ) );
 		root.querySelectorAll( '[data-version]' ).forEach( ( button ) => {
 			button.setAttribute( 'aria-busy', String( id !== null && Number( button.dataset.version ) === id ) );
@@ -96,10 +94,6 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 	 * @param {object} data Authorized version response.
 	 */
 	function renderArticle( data ) {
-		if ( data.version.current && baseline === 0 ) {
-			restoreArticle();
-			return;
-		}
 		const comparing = data.inline;
 		const html = comparing ? renderedDiff( data.inline.before.html, data.inline.after.html ) : data.html;
 		const template = document.createElement( 'template' );
@@ -115,7 +109,7 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 				usedIds.add( element.id );
 			}
 		} );
-		template.content.querySelectorAll( 'ins, del' ).forEach( ( change ) => {
+		template.content.querySelectorAll( changeSelector ).forEach( ( change ) => {
 			change.dataset.historyContentChange = '';
 		} );
 		article.replaceChildren( template.content );
@@ -168,17 +162,83 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 	 * @returns {Promise<object>} Authorized server response.
 	 */
 	async function request( suffix ) {
-		const response = await fetch( `${root.dataset.endpoint}${suffix}`, {
-			credentials: 'same-origin',
-			headers: { 'X-WP-Nonce': root.dataset.nonce },
-			cache: 'no-store',
-		} ).catch( () => {
-			throw new Error( __( 'History could not be loaded. Check your connection and try again.', 'hm-post-history' ) );
+		const response = await apiFetch( {
+			path: `${root.dataset.endpoint}${suffix}`,
+			parse: false,
+		} ).catch( ( error ) => {
+			throw new Error( error.status
+				? __( 'History could not be loaded. Your access may have changed. Try again or reload the page.', 'hm-post-history' )
+				: __( 'History could not be loaded. Check your connection and try again.', 'hm-post-history' ) );
 		} );
-		if ( ! response.ok ) {
-			throw new Error( __( 'History could not be loaded. Your access may have changed. Try again or reload the page.', 'hm-post-history' ) );
+		return {
+			data: await response.json(),
+			totalPages: Number( response.headers.get( 'X-WP-TotalPages' ) ),
+		};
+	}
+
+	/**
+	 * Read a post or revision using Core's controller, with the timeline presentation field.
+	 *
+	 * @param {number} id Revision ID, or zero for the current post.
+	 * @returns {Promise<object>} Core post or revision response.
+	 */
+	async function readVersion( id ) {
+		const { data } = await request( `${id ? `/revisions/${id}` : ''}?context=view&_fields=id,title,content,modified_gmt,hm_history` );
+		data.hm_history = versionMetadata( data, id === 0 );
+		return data;
+	}
+
+	/**
+	 * @param {object} post Core response containing timeline presentation metadata.
+	 * @param {boolean} current Whether this is the live post.
+	 * @returns {object} Timeline entry.
+	 */
+	function versionMetadata( post, current = false ) {
+		if ( ! post.hm_history ) {
+			throw new Error( __( 'This version is unavailable.', 'hm-post-history' ) );
 		}
-		return response.json();
+		return {
+			...post.hm_history,
+			id: current ? 0 : post.id,
+			current,
+		};
+	}
+
+	/**
+	 * Adapt two Core responses to the existing inline comparison renderer.
+	 *
+	 * @param {object} version Selected Core response.
+	 * @param {object} base Pinned Core response.
+	 * @returns {object} Chronological comparison, or a large-document preview.
+	 */
+	function comparison( version, base ) {
+		/**
+		 * @param {object} post Core post or revision response.
+		 * @returns {object} Plain title and rendered article.
+		 */
+		const snapshot = ( post ) => {
+			const heading = document.createElement( 'template' );
+			heading.innerHTML = post.title.rendered;
+			return {
+				title: heading.content.textContent,
+				html: post.content.rendered,
+			};
+		};
+		const order = ( version.modified_gmt || '' ).localeCompare( base.modified_gmt || '' )
+			|| Number( version.hm_history.current ) - Number( base.hm_history.current )
+			|| version.id - base.id;
+		const [ before, after ] = ( order <= 0 ? [ version, base ] : [ base, version ] ).map( snapshot );
+		const html = before.html + after.html;
+		return {
+			version: version.hm_history,
+			comparison: base.hm_history,
+			title: snapshot( version ).title,
+			html: version.content.rendered,
+			inline: new TextEncoder().encode( html ).length > 200000 || html.split( '\n' ).length > 2001 ? null : {
+				before,
+				after,
+			},
+		};
 	}
 
 	/**
@@ -330,13 +390,21 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 		announce( __( 'Loading revisions', 'hm-post-history' ), ! initialized );
 		try {
 			// A batch may contain only snapshots identical to current, or inaccessible
-			// evidence. Advance the cursor until an entry can actually be displayed.
+			// evidence. Advance to the next page until an entry can actually be displayed.
 			const previousCount = versionIds.size;
+			if ( firstLoad ) {
+				const { data } = await request( '?context=view&_fields=id,hm_history' );
+				addVersion( versionMetadata( data, true ) );
+			}
 			do {
-				const data = await request( `?before=${next || 0}` );
-				addVersion( data.current );
-				data.versions.forEach( addVersion );
-				next = data.next;
+				const page = next || 1;
+				const { data, totalPages } = await request( `/revisions?context=view&per_page=20&page=${page}&orderby=id&order=desc&_fields=id,hm_history` );
+				data.forEach( ( revision ) => {
+					if ( revision.hm_history ) {
+						addVersion( versionMetadata( revision ) );
+					}
+				} );
+				next = page < totalPages ? page + 1 : null;
 			} while ( next && root.open && versionIds.size <= Math.max( 1, previousCount ) );
 			initialized = true;
 			find( 'retry' ).hidden = true;
@@ -384,15 +452,14 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 		setLoading( id );
 		announce( __( 'Loading revisions', 'hm-post-history' ) );
 		try {
-			const data = await request( `/${id}?base=${baseline}` );
+			const [ versionResponse, baseResponse ] = await Promise.all( [ readVersion( id ), id === baseline ? null : readVersion( baseline ) ] );
+			const data = comparison( versionResponse, baseResponse || versionResponse );
 			if ( sequence !== requestNumber || ! root.open ) {
 				return;
 			}
 			const version = data.version;
 			addVersion( version );
-			if ( data.comparison ) {
-				addVersion( data.comparison );
-			}
+			addVersion( data.comparison );
 			controls();
 			const note = ! data.inline ? __( 'This comparison is too large to highlight inline.', 'hm-post-history' ) : '';
 			find( 'notice' ).hidden = ! note;
@@ -433,7 +500,6 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 	async function open() {
 		const sequence = ++requestNumber;
 		if ( initialized ) {
-			restoreArticle( true );
 			await select( selected, true, false );
 			return;
 		}
@@ -472,16 +538,6 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 		rootMargin: '0px 0px 100px 0px',
 	} );
 	olderObserver.observe( find( 'more' ) );
-	document.addEventListener( 'hm-post-history.diff-switched', () => {
-		if ( title ) {
-			title.replaceChildren( ...originalTitleNodes );
-			title.classList.remove( 'hm-history-reading-title' );
-		}
-		article.classList.remove( 'hm-history-reading' );
-		article.removeAttribute( 'aria-label' );
-		showingHistory = false;
-		root.open = false;
-	} );
 	if ( window.location.hash.startsWith( '#history=' ) ) {
 		root.open = true;
 	}

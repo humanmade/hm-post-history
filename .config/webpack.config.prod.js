@@ -9,7 +9,6 @@ module.exports = presets.production( {
 	name: 'frontend',
 	externals,
 	entry: {
-		frontend: filePath( 'assets/src/scripts/frontend.js' ),
 		browser: filePath( 'assets/src/scripts/browser.js' ),
 	},
 	output: {

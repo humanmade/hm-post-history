@@ -326,11 +326,6 @@
 		height: 1px;
 	}
 
-	button:disabled {
-		opacity: 0.45;
-		cursor: default;
-	}
-
 	:focus-visible {
 		outline: 3px solid var( --history-action );
 		outline-offset: 3px;
@@ -367,61 +362,6 @@
 @media ( prefers-reduced-motion: reduce ) {
 	.hm-history button.hm-history__revision[aria-busy="true"]::before {
 		animation: none;
-	}
-}
-
-.hm-history--sidebar {
-	--history-line: var( --c-line, #c5c8cc );
-	--history-page: var( --c-surface, #fff );
-	--history-action: var( --c-action, #1f63c8 );
-	margin: 0 0 18px;
-	border: 1px solid var( --history-line );
-	border-radius: var( --r-card, 16px );
-	overflow: hidden;
-
-	> summary {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-		padding: 15px 16px;
-		color: var( --history-ink );
-		font: 600 14px/1.4 var( --font-body, inherit );
-		list-style: none;
-
-		&::-webkit-details-marker {
-			display: none;
-		}
-
-		&::marker {
-			content: "";
-		}
-
-		&:hover {
-			background: var( --c-action-soft, #eef4ff );
-		}
-
-		&:focus-visible {
-			outline: 2px solid var( --c-focus, var( --history-action ) );
-			outline-offset: -3px;
-		}
-	}
-
-	.hm-history__body {
-		border-top: 1px solid var( --history-line );
-		padding: 16px;
-	}
-
-	.hm-history__chevron {
-		flex: 0 0 auto;
-		width: 0.8em;
-		height: 0.8em;
-		color: var( --history-action );
-		transform: scaleY( 1.1 );
-	}
-
-	&[open] .hm-history__chevron {
-		transform: scaleY( -1.1 );
 	}
 }
 
