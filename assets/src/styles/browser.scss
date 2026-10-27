@@ -12,28 +12,6 @@
 	--history-removed: #f9dce0;
 }
 
-/* Static host sections use the document's scroll and explicit batch loading. */
-.hm-history:not(details) {
-	.hm-history__version {
-		display: block;
-		max-height: none;
-	}
-
-	.hm-history__timeline {
-		max-height: none;
-		overflow: visible;
-
-		li:has(+ .hm-history__sentinel)::after {
-			display: none;
-		}
-	}
-
-	[data-history-older] {
-		width: 100%;
-		margin-top: 0.5rem;
-	}
-}
-
 .hm-history {
 	color: var( --history-ink );
 	background: var( --history-page );
@@ -43,10 +21,11 @@
 	font-size: 0.875rem;
 	line-height: 1.5;
 
-	summary {
+	&__title {
 		padding: 0.7rem 0;
-		cursor: pointer;
-		color: var( --history-action );
+		margin: 0;
+		font-size: inherit;
+		color: var( --history-ink );
 		font-weight: 600;
 	}
 
@@ -87,24 +66,15 @@
 		letter-spacing: normal;
 	}
 
-	&__version {
-		display: flex;
-		flex-direction: column;
-		max-height: 340px;
+	[data-history-older] {
+		width: 100%;
+		margin-top: 0.5rem;
 	}
 
 	&__timeline {
-		flex: 0 1 auto;
-		min-height: 0;
 		list-style: none;
 		margin: 0 0 0.5rem;
 		padding: 0 2px 2px;
-		max-height: 340px;
-		overflow-y: auto;
-		scroll-padding-top: 2px;
-		overscroll-behavior: contain;
-		scrollbar-width: thin;
-		scrollbar-color: var( --history-line ) transparent;
 
 		li {
 			position: relative;
@@ -116,7 +86,7 @@
 			display: none;
 		}
 
-		li:not(:last-child):not(.hm-history__sentinel)::after {
+		li:not(:last-child)::after {
 			content: "";
 			position: absolute;
 			inset: 24px auto -20px 8px;
@@ -124,11 +94,8 @@
 			background: var( --history-line );
 			pointer-events: none;
 		}
-		// Only the comparison base stays separate from scrolling revisions.
+		// Only the comparison base stays separate from the remaining revisions.
 		&--fixed {
-			flex: 0 0 auto;
-			overflow: visible;
-			max-height: none;
 			margin-bottom: 4px;
 			padding-bottom: 6px;
 			border-bottom: 1px solid var( --history-line );
@@ -288,7 +255,7 @@
 			}
 		}
 
-		.hm-history__timeline li:not(:last-child):not(.hm-history__sentinel)::after {
+		.hm-history__timeline li:not(:last-child)::after {
 			left: 22px;
 		}
 	}
@@ -342,10 +309,6 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-	}
-
-	&__sentinel {
-		height: 1px;
 	}
 
 	:focus-visible {
