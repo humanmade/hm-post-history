@@ -142,7 +142,7 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 		showingHistory = true;
 	}
 
-	let versions = [];
+	const versionIds = new Set();
 	let selected = 0;
 	let baseline = 0;
 	const currentMatches = new Set();
@@ -189,11 +189,10 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 			currentMatches.add( version.id );
 			return;
 		}
-		if ( versions.some( ( item ) => item.id === version.id ) ) {
+		if ( versionIds.has( version.id ) ) {
 			return;
 		}
-		versions.push( version );
-		versions.sort( ( a, b ) => a.id === 0 ? -1 : ( b.id === 0 ? 1 : b.id - a.id ) );
+		versionIds.add( version.id );
 		const item = document.createElement( 'li' );
 		if ( version.current ) {
 			item.className = 'hm-history__current';
@@ -329,17 +328,17 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 		try {
 			// A batch may contain only snapshots identical to current, or inaccessible
 			// evidence. Advance the cursor until an entry can actually be displayed.
-			const previousCount = versions.length;
+			const previousCount = versionIds.size;
 			do {
 				const data = await request( `?before=${next || 0}` );
 				addVersion( data.current );
 				data.versions.forEach( addVersion );
 				next = data.next;
-			} while ( next && root.open && versions.length <= Math.max( 1, previousCount ) );
+			} while ( next && root.open && versionIds.size <= Math.max( 1, previousCount ) );
 			initialized = true;
 			root.querySelector( '.hm-history__workspace' ).hidden = false;
 			find( 'retry' ).hidden = true;
-			const empty = versions.length === 1 && ! next;
+			const empty = versionIds.size === 1 && ! next;
 			announce( empty ? __( 'No earlier versions are available to view.', 'hm-post-history' ) : __( 'Page versions loaded.', 'hm-post-history' ), empty );
 			return true;
 		} catch ( error ) {
@@ -373,7 +372,7 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 			setLoading( null );
 			find( 'retry' ).hidden = true;
 			panel.setAttribute( 'aria-busy', 'false' );
-			const empty = initialized && versions.length === 1 && ! next;
+			const empty = initialized && versionIds.size === 1 && ! next;
 			announce( empty ? __( 'No earlier versions are available to view.', 'hm-post-history' ) : __( 'Current version displayed.', 'hm-post-history' ), empty );
 			if ( updateURL ) {
 				window.history.replaceState( null, '', '#history=0' );
@@ -383,7 +382,7 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 		setLoading( id );
 		announce( __( 'Loading revisions', 'hm-post-history' ) );
 		try {
-			const data = await request( `/${id}?compare=current&base=${baseline}` );
+			const data = await request( `/${id}?base=${baseline}` );
 			if ( sequence !== requestNumber || ! root.open ) {
 				return;
 			}

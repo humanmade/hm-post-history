@@ -42,22 +42,16 @@ function setup() : void {
 			'permission_callback' => __NAMESPACE__ . '\\revisions_request_permissions_callback',
 			'args' => [
 				'id' => [
-					'sanitize_callback' => 'absint',
-					'validate_callback' => function ( $param, $request, $key ) {
-						return is_numeric( $param );
-					},
+					'type' => 'integer',
+					'minimum' => 1,
 				],
 				'paged' => [
-					'sanitize_callback' => 'absint',
-					'validate_callback' => function ( $param, $request, $key ) {
-						return is_numeric( $param );
-					},
+					'type' => 'integer',
+					'minimum' => 1,
 				],
 				'per_page' => [
-					'sanitize_callback' => 'absint',
-					'validate_callback' => function ( $param, $request, $key ) {
-						return is_numeric( $param );
-					},
+					'type' => 'integer',
+					'minimum' => 1,
 				],
 			],
 		]
@@ -160,11 +154,16 @@ function revisions_request_permissions_callback( WP_REST_Request $request ) {
  */
 function can_read( int $id ) : bool {
 	$post = get_post( $id );
-	return $post && should_enable() && post_type_supports( $post->post_type, 'hm-post-history' )
-		&& ( ! is_multisite() || is_super_admin() || is_user_member_of_blog() )
-		&& current_user_can( 'edit_post', $id ) && current_user_can( 'read_post', $id )
-		&& ! post_password_required( $post )
-		&& (bool) apply_filters( 'hm_post_history_can_read_post', true, $post, get_current_user_id() );
+	if ( ! $post || ! should_enable() || ! post_type_supports( $post->post_type, 'hm-post-history' ) ) {
+		return false;
+	}
+	if ( is_multisite() && ! is_super_admin() && ! is_user_member_of_blog() ) {
+		return false;
+	}
+	if ( ! current_user_can( 'edit_post', $id ) || ! current_user_can( 'read_post', $id ) || post_password_required( $post ) ) {
+		return false;
+	}
+	return (bool) apply_filters( 'hm_post_history_can_read_post', true, $post, get_current_user_id() );
 }
 
 /**

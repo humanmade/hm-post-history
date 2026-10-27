@@ -123,14 +123,10 @@ function routes() : void {
 			'minimum' => 0,
 			'default' => 0,
 		],
-		'compare' => [
-			'type' => 'string',
-			'enum' => [ 'previous', 'current' ],
-			'default' => 'previous',
-		],
 		'base' => [
 			'type' => 'integer',
 			'minimum' => 0,
+			'default' => 0,
 		],
 	];
 	$common = [
@@ -342,64 +338,43 @@ function chronological_versions( WP_Post $selected, WP_Post $base ) : array {
 function detail( WP_REST_Request $request ) {
 	$parent = get_post( $request['id'] );
 	$version = (int) $request['version'];
-	$post = $version ? get_post( $version ) : $parent;
+	$post = $version ? wp_get_post_revision( $version ) : $parent;
 	if ( ! $post || ( $version && ! REST\can_read_revision( $parent, $post ) ) ) {
 		return new WP_Error( 'history_unavailable', __( 'This version is unavailable.', 'hm-post-history' ), [ 'status' => 404 ] );
 	}
-	$other = null;
-	$explicit_base = $request->has_param( 'base' );
-	if ( $explicit_base ) {
-		$base = (int) $request['base'];
-		$other = $base ? get_post( $base ) : $parent;
-		if ( ! $other || ( $base && ! REST\can_read_revision( $parent, $other ) ) ) {
-			return new WP_Error( 'history_unavailable', __( 'This comparison version is unavailable.', 'hm-post-history' ), [ 'status' => 404 ] );
-		}
-	} elseif ( $request['compare'] === 'current' && $version ) {
-		$other = $parent;
-	} else {
-		$revisions = REST\get_revisions( $parent->ID, [
-			'before' => $version,
-			'posts_per_page' => $version ? 1 : 2,
-		] );
-		foreach ( $revisions as $candidate ) {
-			// Core's latest revision often matches the current page; skip that duplicate.
-			if ( $version || ! matches_current( $candidate, $parent ) ) {
-				$other = $candidate;
-				break;
-			}
-		}
+	$base = (int) $request['base'];
+	$other = $base ? wp_get_post_revision( $base ) : $parent;
+	if ( ! $other || ( $base && ! REST\can_read_revision( $parent, $other ) ) ) {
+		return new WP_Error( 'history_unavailable', __( 'This comparison version is unavailable.', 'hm-post-history' ), [ 'status' => 404 ] );
 	}
-	$inline = null;
 	// Render each saved version once; the existing HTML diff library compares them in the browser.
 	$html = saved_html( $post->post_content );
-	if ( $other ) {
-		$other_html = $other->ID === $post->ID ? $html : saved_html( $other->post_content );
-		[ $older, $newer ] = chronological_versions( $post, $other );
-		$before_html = $older === $post ? $html : $other_html;
-		$after_html = $older === $post ? $other_html : $html;
-		$inline = [
-			'before' => [
-				'title' => $older->post_title,
-				'excerpt' => $older->post_excerpt,
-				'html' => $before_html,
-			],
-			'after' => [
-				'title' => $newer->post_title,
-				'excerpt' => $newer->post_excerpt,
-				'html' => $after_html,
-			],
-		];
-		// Limit client-side HTML diff work on unusually large documents; retain the saved preview.
-		if ( strlen( $before_html ) + strlen( $after_html ) > 200000 || substr_count( $before_html . $after_html, "\n" ) > 2000 ) {
-			$inline = null;
-		}
+	$other_html = $other->ID === $post->ID ? $html : saved_html( $other->post_content );
+	[ $older, $newer ] = chronological_versions( $post, $other );
+	$before_html = $older === $post ? $html : $other_html;
+	$after_html = $older === $post ? $other_html : $html;
+	$inline = [
+		'before' => [
+			'title' => $older->post_title,
+			'html' => $before_html,
+		],
+		'after' => [
+			'title' => $newer->post_title,
+			'html' => $after_html,
+		],
+	];
+	// Limit client-side HTML diff work on unusually large documents; retain the saved preview.
+	if ( strlen( $before_html ) + strlen( $after_html ) > 200000 || substr_count( $before_html . $after_html, "\n" ) > 2000 ) {
+		$inline = null;
 	}
-	return response( [
+	$data = [
 		'version' => metadata( $post, ! $version ),
 		'title' => $post->post_title,
-		'excerpt' => $post->post_excerpt,
-		'html' => $html,
 		'inline' => $inline,
-		'comparison' => $other ? metadata( $other, $other->ID === $parent->ID ) : null,
-	] );
+		'comparison' => metadata( $other, ! $base ),
+	];
+	if ( ! $inline ) {
+		$data['html'] = $html;
+	}
+	return response( $data );
 }
