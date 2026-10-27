@@ -7,12 +7,10 @@
 
 namespace HM\Post_History\REST;
 
-use \DateTime;
-use \WP_Query;
-use \WP_REST_Request;
-use \WP_Error;
-use const HM\Post_History\DEFAULT_PER_PAGE;
-use const HM\Post_History\REST_NAMESPACE;
+use HM\Post_History\Browser;
+use WP_Post;
+use WP_REST_Request;
+use WP_REST_Response;
 
 /**
  * Set up everything the REST API needs.
@@ -21,146 +19,133 @@ use const HM\Post_History\REST_NAMESPACE;
  */
 function bootstrap() : void {
 	add_action( 'rest_api_init', __NAMESPACE__ . '\\setup', 20 );
+	add_filter( 'rest_request_before_callbacks', __NAMESPACE__ . '\\prepare_browser_request', 10, 3 );
+	add_filter( 'rest_request_after_callbacks', __NAMESPACE__ . '\\finish_browser_request', 10, 3 );
+	add_filter( 'rest_prepare_revision', __NAMESPACE__ . '\\prepare_item', 10, 3 );
 }
 
 /**
- * Setup API. Register rest routes.
+ * Register timeline presentation fields on Core post and revision responses.
  *
- * @return null
+ * @return void
  */
-function setup() {
-	register_rest_route(
-		REST_NAMESPACE,
-		'/revisions/(?P<id>\d+)',
-		[
-			'methods' => 'GET',
-			'callback' => __NAMESPACE__ . '\\get_revisions_response',
-			'permission_callback' => __NAMESPACE__ . '\\revisions_request_permissions_callback',
-			'args' => [
-				'id' => [
-					'sanitize_callback' => 'absint',
-					'validate_callback' => function ( $param, $request, $key ) {
-						return is_numeric( $param );
-					},
+function setup() : void {
+	$types = get_post_types_by_support( 'revisions' );
+	$revision_types = array_map( static fn( $type ) => $type . '-revision', $types );
+	register_rest_field( array_merge( $types, $revision_types ), 'hm_history', [
+		'schema' => [
+			'type' => 'object',
+			'readonly' => true,
+			'context' => [ 'view' ],
+			'properties' => [
+				'date' => [ 'type' => 'string' ],
+				'author' => [ 'type' => 'string' ],
+				'avatar' => [
+					'type' => 'string',
+					'format' => 'uri',
 				],
-				'paged' => [
-					'sanitize_callback' => 'absint',
-					'validate_callback' => function ( $param, $request, $key ) {
-						return is_numeric( $param );
-					},
-				],
-				'per_page' => [
-					'sanitize_callback' => 'absint',
-					'validate_callback' => function ( $param, $request, $key ) {
-						return is_numeric( $param );
-					},
-				],
+				'matches_current' => [ 'type' => 'boolean' ],
 			],
-		]
-	);
-
-}
-
-/**
- * Returns a WP_Query containing revisions.
- *
- * @param array $args Args to modify the query.
- *
- * @return \WP_Query
- */
-function get_revisions_query( array $args ) : WP_Query {
-	$per_page = $args['per_page'] ?? apply_filters( 'hm_post_history_default_per_page', DEFAULT_PER_PAGE );
-	$paged = $args['paged'] ?? 1;
-	$id = $args['id'] ?? get_the_ID();
-
-	return new WP_Query( [
-		'post_parent' => $id,
-		'post_type' => 'revision',
-		'post_status' => 'inherit',
-		'posts_per_page' => $per_page,
-		'paged' => $paged,
+		],
 	] );
+	foreach ( $types as $type ) {
+		add_filter( 'rest_prepare_' . $type, __NAMESPACE__ . '\\prepare_item', 10, 3 );
+	}
 }
 
 /**
- * Compile formatted list of revisions.
+ * Use Core's permission check for browser visibility.
  *
- * @param \WP_Query $query Query containing revisions.
- *
- * @return array
- * @throws \Exception
+ * @param int $id Parent post ID.
  */
-function build_revisions_list( WP_Query $query ) : array {
-	$revisions = [];
-	foreach ( $query->posts as $revision ) {
-
-		$date = new DateTime( $revision->post_modified_gmt );
-
-		$revisions[] = [
-			'id' => $revision->ID,
-			'content' => apply_filters( 'the_content', $revision->post_content ),
-			'date' => $date->format( 'Y-m-d @ H:i' ),
-			'author' => get_the_author_meta( 'display_name', $revision->post_author ),
-		];
-
+function can_read( int $id ) : bool {
+	$post_type = get_post_type_object( get_post_type( $id ) );
+	if ( ! $post_type ) {
+		return false;
 	}
-
-	return $revisions;
+	$request = new WP_REST_Request( 'GET' );
+	$request['parent'] = $id;
+	$controller = $post_type->get_revisions_rest_controller();
+	return $controller && $controller->get_items_permissions_check( $request ) === true;
 }
 
 /**
- * Get post revisions API request response.
+ * Whether this request explicitly asks for the history browser's additional field.
  *
- * @param \WP_REST_Request $request Request
- *
- * @return \WP_REST_Response Response
- * @throws \Exception
+ * @param WP_REST_Request $request REST request.
  */
-function get_revisions_response( WP_REST_Request $request ) : \WP_REST_Response {
-
-	$query = get_revisions_query( [
-		'id' => $request->get_param( 'id' ),
-		'per_page' => $request->get_param( 'per_page' ),
-		'paged' => $request->get_param( 'paged' ),
-	] );
-
-	return rest_ensure_response( [
-		'revisions' => build_revisions_list( $query ),
-		'hasMore' => $request->get_param( 'paged' ) < $query->max_num_pages,
-	] );
-
+function is_browser_request( WP_REST_Request $request ) : bool {
+	return $request->is_method( 'GET' ) && ( $request['context'] ?? 'view' ) === 'view'
+		&& ! empty( $request['_fields'] ) && rest_is_field_included( 'hm_history', wp_parse_list( $request['_fields'] ) );
 }
 
 /**
- * Request permissions callback.
+ * Scope the host's article presentation to requests made by the history browser.
  *
- * Revisions of published posts are public. Otherwise they fall back to the edit_post cap.
- *
- * @param WP_REST_Request $request Full data about the request.
- *
- * @return WP_Error|boolean
+ * @param mixed $response Earlier short-circuit response.
+ * @param array $handler Matched route handler.
+ * @param WP_REST_Request $request REST request.
+ * @return mixed Unchanged response; Core owns authorization.
  */
-function revisions_request_permissions_callback( WP_REST_Request $request ) {
-
-	$post_id = $request->get_param( 'id' );
-
-	if ( 'publish' === get_post_status( $post_id ) ) {
-		return true;
+function prepare_browser_request( $response, array $handler, WP_REST_Request $request ) {
+	if ( is_browser_request( $request ) ) {
+		add_filter( 'pre_render_block', __NAMESPACE__ . '\\hide_history_blocks', 10, 2 );
 	}
+	return $response;
+}
 
-	$parent = apply_filters( 'rest_the_post', get_post( $post_id ), $post_id );
-
-	if ( ! $parent ) {
-		return true;
+/**
+ * Respect blocks the host deliberately omits from the article reading view.
+ *
+ * @param string|null $rendered Earlier short-circuit output.
+ * @param array $block Parsed block.
+ * @return string|null Existing output, or an empty hidden block.
+ */
+function hide_history_blocks( $rendered, array $block ) {
+	if ( in_array( $block['blockName'], (array) apply_filters( 'hm_post_history_hidden_blocks', [] ), true ) ) {
+		return '';
 	}
+	return $rendered;
+}
 
-	$parent_post_type_obj = get_post_type_object( $parent->post_type );
-
-	if ( ! current_user_can( $parent_post_type_obj->cap->edit_post, $parent->ID ) ) {
-		return new WP_Error( 'rest_cannot_read', __( 'Sorry, you cannot view revisions of this post.' ),
-			[ 'status' => rest_authorization_required_code() ] );
+/**
+ * Remove request-scoped block presentation after Core finishes the response.
+ *
+ * @param mixed $response Core response or error.
+ * @param array $handler Route handler.
+ * @param WP_REST_Request $request REST request.
+ * @return mixed Unchanged Core response.
+ */
+function finish_browser_request( $response, array $handler, WP_REST_Request $request ) {
+	if ( is_browser_request( $request ) ) {
+		remove_filter( 'pre_render_block', __NAMESPACE__ . '\\hide_history_blocks', 10 );
 	}
+	return $response;
+}
 
-	return true;
-
+/**
+ * Add timeline metadata and prepare article markup through Core's per-item filter.
+ *
+ * @param WP_REST_Response $response Core post or revision response.
+ * @param WP_Post $post Post represented by the response.
+ * @param WP_REST_Request $request REST request.
+ */
+function prepare_item( WP_REST_Response $response, WP_Post $post, WP_REST_Request $request ) : WP_REST_Response {
+	if ( ! is_browser_request( $request ) ) {
+		return $response;
+	}
+	$data = $response->get_data();
+	$parent = $post->post_type === 'revision' ? get_post( $post->post_parent ) : $post;
+	// Autosaves remain accessible through Core, but are not timeline entries.
+	if ( $parent && ! wp_is_post_autosave( $post ) ) {
+		$data['hm_history'] = Browser\metadata( $post );
+		$data['hm_history']['matches_current'] = $post->post_title === $parent->post_title
+			&& $post->post_content === $parent->post_content
+			&& $post->post_excerpt === $parent->post_excerpt;
+	}
+	if ( isset( $data['content']['rendered'] ) ) {
+		$data['content']['rendered'] = Browser\prepare_html( $data['content']['rendered'] );
+	}
+	$response->set_data( $data );
+	return $response;
 }
