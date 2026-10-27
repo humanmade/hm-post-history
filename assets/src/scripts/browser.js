@@ -285,6 +285,9 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 
 	/** Update selection labels, pin state and the placement of each loaded version. */
 	function controls() {
+		const empty = initialized && versionIds.size === 1 && ! next;
+		root.classList.toggle( 'hm-history--empty', empty );
+		root.querySelector( '.hm-history__workspace' ).hidden = ! initialized || empty;
 		find( 'more' ).hidden = ! next;
 		root.querySelectorAll( '[data-version]' ).forEach( ( button ) => {
 			const id = Number( button.dataset.version );
@@ -336,10 +339,9 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 				next = data.next;
 			} while ( next && root.open && versionIds.size <= Math.max( 1, previousCount ) );
 			initialized = true;
-			root.querySelector( '.hm-history__workspace' ).hidden = false;
 			find( 'retry' ).hidden = true;
 			const empty = versionIds.size === 1 && ! next;
-			announce( empty ? __( 'No earlier versions are available to view.', 'hm-post-history' ) : __( 'Page versions loaded.', 'hm-post-history' ), empty );
+			announce( empty ? __( 'No earlier versions yet.', 'hm-post-history' ) : __( 'Page versions loaded.', 'hm-post-history' ), empty );
 			return true;
 		} catch ( error ) {
 			announce( error.message, true );
@@ -373,7 +375,7 @@ document.querySelectorAll( '[data-hm-history]' ).forEach( ( root ) => {
 			find( 'retry' ).hidden = true;
 			panel.setAttribute( 'aria-busy', 'false' );
 			const empty = initialized && versionIds.size === 1 && ! next;
-			announce( empty ? __( 'No earlier versions are available to view.', 'hm-post-history' ) : __( 'Current version displayed.', 'hm-post-history' ), empty );
+			announce( empty ? __( 'No earlier versions yet.', 'hm-post-history' ) : __( 'Current version displayed.', 'hm-post-history' ), empty );
 			if ( updateURL ) {
 				window.history.replaceState( null, '', '#history=0' );
 			}
