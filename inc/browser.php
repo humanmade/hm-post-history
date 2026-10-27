@@ -60,28 +60,44 @@ function content( string $content ) : string {
  *
  * @param int $id Parent post ID.
  * @param bool $sidebar Whether to use the host sidebar widget presentation.
+ * @param callable|null $container Optional host renderer receiving title, content and container attributes.
  */
-function markup( int $id, bool $sidebar = false ) : string {
+function markup( int $id, bool $sidebar = false, ?callable $container = null ) : string {
 	ob_start();
 	?>
-	<details class="hm-history<?php echo $sidebar ? ' hm-history--sidebar hm-widget' : ''; ?>" data-hm-history data-endpoint="<?php echo esc_url( rest_url( 'post-history/v1/versions/' . $id ) ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>">
+	<p data-history-status class="hm-history__sr-only" role="status" aria-live="polite"></p>
+	<button type="button" data-history-retry hidden><?php esc_html_e( 'Try again', 'hm-post-history' ); ?></button>
+	<div class="hm-history__workspace" hidden>
+		<section class="hm-history__version" aria-label="<?php esc_attr_e( 'History controls', 'hm-post-history' ); ?>" aria-busy="false">
+			<ol class="hm-history__timeline hm-history__timeline--fixed" data-history-fixed aria-label="<?php esc_attr_e( 'Comparison base', 'hm-post-history' ); ?>"></ol>
+			<ol class="hm-history__timeline" data-history-versions aria-label="<?php esc_attr_e( 'Page versions', 'hm-post-history' ); ?>"><li class="hm-history__sentinel" data-history-more aria-hidden="true" hidden></li></ol>
+			<p class="hm-history__notice" data-history-notice hidden></p>
+		</section>
+	</div>
+	<noscript><p><?php esc_html_e( 'Enable JavaScript to browse page history. The current page remains available below.', 'hm-post-history' ); ?></p></noscript>
+	<?php
+	$content = ob_get_clean();
+	$title = __( 'Page history', 'hm-post-history' );
+	$attributes = [
+		'class' => 'hm-history',
+		'data-hm-history' => '',
+		'data-endpoint' => rest_url( 'post-history/v1/versions/' . $id ),
+		'data-nonce' => wp_create_nonce( 'wp_rest' ),
+	];
+	if ( $container ) {
+		return $container( esc_html( $title ), $content, $attributes );
+	}
+	ob_start();
+	?>
+	<details class="hm-history<?php echo $sidebar ? ' hm-history--sidebar hm-widget' : ''; ?>" data-hm-history data-endpoint="<?php echo esc_url( $attributes['data-endpoint'] ); ?>" data-nonce="<?php echo esc_attr( $attributes['data-nonce'] ); ?>">
 		<summary<?php echo $sidebar ? ' class="hm-widget__title"' : ''; ?>>
-			<span><?php esc_html_e( 'Page history', 'hm-post-history' ); ?></span>
+			<span><?php echo esc_html( $title ); ?></span>
 			<?php if ( $sidebar ) : ?>
 				<svg class="hm-history__chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 18.999c-.4 0-.776-.156-1.059-.438L.22 7.841A.745.745 0 0 1 0 7.31c0-.2.078-.389.22-.53a.744.744 0 0 1 1.06 0L12 17.499 22.72 6.78a.744.744 0 0 1 1.06 0 .744.744 0 0 1 0 1.06L13.06 18.56a1.487 1.487 0 0 1-1.06.439z"/></svg>
 			<?php endif; ?>
 		</summary>
 		<div class="hm-history__body<?php echo $sidebar ? ' hm-widget__content' : ''; ?>">
-			<p data-history-status class="hm-history__sr-only" role="status" aria-live="polite"></p>
-			<button type="button" data-history-retry hidden><?php esc_html_e( 'Try again', 'hm-post-history' ); ?></button>
-			<div class="hm-history__workspace" hidden>
-				<section class="hm-history__version" aria-label="<?php esc_attr_e( 'History controls', 'hm-post-history' ); ?>" aria-busy="false">
-					<ol class="hm-history__timeline hm-history__timeline--fixed" data-history-fixed aria-label="<?php esc_attr_e( 'Comparison base', 'hm-post-history' ); ?>"></ol>
-					<ol class="hm-history__timeline" data-history-versions aria-label="<?php esc_attr_e( 'Page versions', 'hm-post-history' ); ?>"><li class="hm-history__sentinel" data-history-more aria-hidden="true" hidden></li></ol>
-					<p class="hm-history__notice" data-history-notice hidden></p>
-				</section>
-			</div>
-			<noscript><p><?php esc_html_e( 'Enable JavaScript to browse page history. The current page remains available below.', 'hm-post-history' ); ?></p></noscript>
+			<?php echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above. ?>
 		</div>
 	</details>
 	<?php
