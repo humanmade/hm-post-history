@@ -1,35 +1,34 @@
+name: Verify release
+
 on:
   push:
     tags:
-      - '*'
+      - 'v*'
 
-name: Create Release
+permissions:
+  contents: read
 
 jobs:
-  release:
-    name: Create Release
+  verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '16'
+      - uses: actions/checkout@v3
+      - name: Verify version and built assets
+        run: |
+          python3 - <<'CHECK'
+          import json
+          import os
+          import re
+          from pathlib import Path
 
-      - name: Get the version
-        id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
-
-      - name: Create Release
-        uses: technote-space/release-github-actions@v7
-        with:
-          BUILD_COMMAND_TARGET: 'build'
-          CLEAN_TEST_TAG: true
-          CLEAN_TARGETS: .[!.]*,__tests__,src,package.json,package-lock.json,node_modules,tests,*.xml.dist
-          COMMIT_MESSAGE: "Built release for ${{ steps.get_version.outputs.VERSION }}. For a full change log look at the notes within the original/${{ steps.get_version.outputs.VERSION }} release."
-          CREATE_MAJOR_VERSION_TAG: false
-          CREATE_MINOR_VERSION_TAG: false
-          CREATE_PATCH_VERSION_TAG: false
-          DELETE_NODE_MODULES: true
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ORIGINAL_TAG_PREFIX: original/
-          OUTPUT_BUILD_INFO_FILENAME: build.json
-          TEST_TAG_PREFIX: test/
+          version = os.environ['GITHUB_REF_NAME'].removeprefix('v')
+          header = Path('hm-post-history.php').read_text()
+          assert re.search(r'Version:\s*' + re.escape(version) + r'\s', header), 'Plugin version does not match tag'
+          assert json.loads(Path('package.json').read_text())['version'] == version, 'Package version does not match tag'
+          build = Path('assets/build')
+          manifest = json.loads((build / 'production-asset-manifest.json').read_text())
+          assert {'browser.js', 'browser.css'} <= manifest.keys(), 'History assets are missing'
+          for filename in manifest.values():
+              assert (build / filename).is_file(), f'Missing built asset: {filename}'
+          print(f'Verified immutable release {version}')
+          CHECK

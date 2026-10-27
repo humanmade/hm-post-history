@@ -4,14 +4,22 @@ Browse native WordPress revisions in a frontend timeline, pin a comparison base,
 
 ## Release process
 
-This plugin requires a small amount of JS and CSS in order to work properly, and these must be built on deployment. To ensure a tagged release includes these built assets, follow the process below for each release:
+Stable Packagist versions are immutable. Build the package before creating its
+version tag; never move or rebuild a published tag in place.
 
-1. Merge all PRs to be included in the release into `main`
-2. Open a PR to bump the version numbers in `package.json` and `hm-post-history.php` to the next appropriate version
-3. Once the PR is merged, create a tag on `main` with the version number, e.g. `v1.4.0`
-4. GitHub Actions should auto-build the frontend assets and reset that tag to push to the bundled code
+1. Merge the source changes and version bump (`package.json`, `package-lock.json`
+   and `hm-post-history.php`).
+2. In a clean release checkout, run `npm ci && npm run build`.
+3. Add only the files referenced by `assets/build/production-asset-manifest.json`
+   and the manifest itself to a release commit. Check that the package installs
+   and its browser works before publishing it.
+4. Tag that built commit with the matching version (for example, `v2.0.1`) and
+   push the tag. The release workflow verifies the version and built assets; it
+   does not rewrite the tag.
+5. Publish the release notes and update the consuming network's Composer lockfile.
 
-Check the build output in the Actions tab to see whether it works or not.
+If a published package needs a correction, release a new version. Do not reuse
+its tag. The earlier tag-moving release workflow is no longer supported.
 
 ### Development Builds
 
@@ -59,7 +67,7 @@ Inline comparison uses the plugin's existing `htmldiff-js` dependency on the two
 
 ### Assets and delivery
 
-`npm ci && npm run build` compiles `browser.js` and `browser.css` into `assets/build/production-asset-manifest.json`. The existing tagged-release and `develop-built` workflows include these files. Deploy a built shared-plugin release through the network's Composer process before enabling the thin theme adapters. No local dependency path or development bundle belongs in the network lockfile.
+`npm ci && npm run build` compiles `browser.js` and `browser.css` into `assets/build/production-asset-manifest.json`. Published tags must contain these files; the `develop-built` workflow also produces development packages. Deploy a built shared-plugin release through the network's Composer process before enabling the thin theme adapters. No local dependency path or development bundle belongs in the network lockfile.
 
 The browser inherits the consumer theme's reading font. Its scoped `--history-*` tokens fall back to neutral surfaces, blue interactions and readable addition/removal colors; it does not reset global typography or introduce a new site design system. The old widget, client bundle and custom endpoints are removed.
 
